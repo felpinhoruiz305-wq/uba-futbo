@@ -69,6 +69,28 @@ tr:last-child td{border:0}
 .footer{color:#87928a;text-align:center;font-size:11px;margin-top:28px}
 .loading{padding:20px;text-align:center;color:var(--muted)}
 .error{background:#fff0f0;color:#a52b2b;padding:13px;border-radius:10px}
+
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;font-weight:800;color:var(--muted)}
+.field input,.field select{
+width:100%;padding:11px 12px;border:1px solid var(--line);
+border-radius:10px;font:inherit;background:#fff;color:var(--ink)
+}
+.action{
+border:0;border-radius:10px;background:var(--green);color:#fff;
+padding:11px 16px;font-weight:800;cursor:pointer
+}
+.action.secondary{background:#eaf0eb;color:var(--green)}
+.action.danger{background:#a83232}
+.action:disabled{opacity:.5;cursor:not-allowed}
+.request{padding:14px 0;border-bottom:1px solid var(--line)}
+.request:last-child{border:0}
+.request-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.request-actions input{
+min-width:220px;flex:1;padding:9px;border:1px solid var(--line);border-radius:8px
+}
 @media(max-width:720px){
 .span8,.span4,.span6{grid-column:span 12}
 .statrow{grid-template-columns:repeat(2,1fr)}
@@ -76,6 +98,10 @@ tr:last-child td{border:0}
 .hero{display:block}
 .hero .pill{margin-top:10px}
 .bracket{grid-template-columns:repeat(4,180px)}
+}
+@media(max-width:600px){
+.form-grid{grid-template-columns:1fr}
+.field.full{grid-column:auto}
 }
 </style>
 </head>
@@ -235,12 +261,82 @@ Todavía no hay registros individuales disponibles. Los goleadores, asistidores 
 <h1>Portal de directores técnicos</h1>
 <div class="muted">Acceso individual para los DT de cada equipo.</div>
 </div>
-<span class="pill warn">En desarrollo</span>
 </div>
+
+<div id="dtPublic">
+<div class="grid">
+
+<div class="card span6">
+<h2>Solicitar acceso</h2>
+<p class="muted small">
+Completá tus datos. La organización deberá autorizar tu ingreso.
+</p>
+
+<form id="requestForm" class="form-grid">
+<div class="field full">
+<label for="requestName">Nombre y apellido</label>
+<input id="requestName" required maxlength="100">
+</div>
+
+<div class="field full">
+<label for="requestEmail">Correo electrónico</label>
+<input id="requestEmail" type="email" required maxlength="254">
+</div>
+
+<div class="field full">
+<label for="requestTeam">Equipo</label>
+<select id="requestTeam" required>
+<option value="">Cargando equipos...</option>
+</select>
+</div>
+
+<div class="field full">
+<button class="action" type="submit">Enviar solicitud</button>
+</div>
+</form>
+
+<div id="requestMessage" style="margin-top:12px"></div>
+</div>
+
+<div class="card span6">
+<h2>Ingresar al Portal DT</h2>
+<p class="muted small">
+Si tu solicitud fue aprobada y recibiste una invitación,
+ingresá con tu correo y contraseña.
+</p>
+
+<form id="loginForm" class="form-grid">
+<div class="field full">
+<label for="loginEmail">Correo electrónico</label>
+<input id="loginEmail" type="email" required>
+</div>
+
+<div class="field full">
+<label for="loginPassword">Contraseña</label>
+<input id="loginPassword" type="password" required>
+</div>
+
+<div class="field full">
+<button class="action" type="submit">Ingresar</button>
+</div>
+</form>
+
+<div id="loginMessage" style="margin-top:12px"></div>
+</div>
+
+</div>
+</div>
+
+<div id="dtAuthenticated" style="display:none">
 <div class="card">
-<h2>Acceso de DT</h2>
-<div class="notice warn">
-El sistema de autenticación y carga de planillas todavía no está habilitado en esta versión. Próximamente cada DT podrá ingresar con su cuenta personal, consultar sus partidos y enviar resultados para la validación de ambos equipos.
+<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+<div>
+<h2 id="accountTitle">Mi cuenta</h2>
+<div id="accountDescription" class="muted small"></div>
+</div>
+<button class="action secondary" id="logoutButton">Cerrar sesión</button>
+</div>
+<div id="accountContent" style="margin-top:18px"></div>
 </div>
 </div>
 </section>
@@ -262,6 +358,8 @@ const db = window.supabase.createClient(
 
 let teams = [];
 let matches = [];
+let currentUser = null;
+let currentProfile = null;
 
 const $ = id => document.getElementById(id);
 
@@ -543,6 +641,7 @@ async function loadData() {
     renderHome();
     renderFixture();
     renderStandings();
+    renderTeamOptions();
 
   } catch (error) {
     console.error('Error al consultar Supabase:', error);
@@ -560,21 +659,377 @@ async function loadData() {
     $('latestResults').innerHTML = message;
     $('fixtureContent').innerHTML = message;
     $('standingsContent').innerHTML = message;
+    $('requestTeam').innerHTML = '<option value="">No se pudieron cargar los equipos</option>';
   }
 }
 
+// ======================================
+// PORTAL DT: SOLICITUDES Y AUTENTICACIÓN
+// ======================================
+
+function showMessage(elementId, message, success = false) {
+  $(elementId).innerHTML = `
+    <div class="notice ${success ? '' : 'warn'}">
+      ${escapeHTML(message)}
+    </div>
+  `;
+}
+
+function renderTeamOptions() {
+  const select = $('requestTeam');
+
+  if (!teams.length) {
+    select.innerHTML = '<option value="">No hay equipos disponibles</option>';
+    return;
+  }
+
+  const categories = [
+    {id:'A',name:'Copa de Oro · Categoría A'},
+    {id:'B',name:'Copa de Plata · Categoría B'}
+  ];
+
+  select.innerHTML =
+    '<option value="">Seleccioná tu equipo</option>' +
+    categories.map(category => {
+      const options = teams
+        .filter(team => team.category === category.id)
+        .map(team => `
+          <option value="${escapeHTML(team.id)}">
+            ${escapeHTML(team.name)}
+            ${category.id === 'A'
+              ? ' · Zona ' + escapeHTML(team.zone)
+              : ''}
+          </option>
+        `).join('');
+
+      return `<optgroup label="${category.name}">${options}</optgroup>`;
+    }).join('');
+}
+
+// Solicitud pública
+$('requestForm').addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Enviando...';
+
+  try {
+    const fullName = $('requestName').value.trim();
+    const email = $('requestEmail').value.trim().toLowerCase();
+    const teamId = $('requestTeam').value;
+
+    if (!teamId) throw new Error('Seleccioná un equipo.');
+
+    const {data:existing,error:existingError} = await db
+      .from('access_requests')
+      .select('id,status')
+      .eq('email',email)
+      .eq('status','pending')
+      .limit(1);
+
+    if (existingError) throw existingError;
+
+    if (existing && existing.length) {
+      throw new Error('Ya existe una solicitud pendiente con ese correo.');
+    }
+
+    const {error} = await db
+      .from('access_requests')
+      .insert({
+        full_name:fullName,
+        email:email,
+        requested_team_id:teamId
+      });
+
+    if (error) throw error;
+
+    showMessage(
+      'requestMessage',
+      'Tu solicitud fue enviada correctamente. Queda pendiente de aprobación.',
+      true
+    );
+
+    $('requestForm').reset();
+    renderTeamOptions();
+
+  } catch (error) {
+    console.error(error);
+    showMessage(
+      'requestMessage',
+      error.message || 'No se pudo enviar la solicitud.'
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Enviar solicitud';
+  }
+});
+
+// Inicio de sesión
+$('loginForm').addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const button = event.submitter;
+  button.disabled = true;
+
+  try {
+    const {error} = await db.auth.signInWithPassword({
+      email:$('loginEmail').value.trim(),
+      password:$('loginPassword').value
+    });
+
+    if (error) throw error;
+
+    await checkSession();
+
+  } catch (error) {
+    showMessage('loginMessage',error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+// Cierre de sesión
+$('logoutButton').addEventListener('click', async () => {
+  await db.auth.signOut();
+  currentUser = null;
+  currentProfile = null;
+  showPublicPortal();
+});
+
+function showPublicPortal() {
+  $('dtPublic').style.display = 'block';
+  $('dtAuthenticated').style.display = 'none';
+}
+
+async function checkSession() {
+  const {data,error} = await db.auth.getSession();
+
+  if (error) {
+    console.error(error);
+    showPublicPortal();
+    return;
+  }
+
+  currentUser = data.session?.user || null;
+
+  if (!currentUser) {
+    showPublicPortal();
+    return;
+  }
+
+  const {data:profile,error:profileError} = await db
+    .from('profiles')
+    .select('full_name,role')
+    .eq('id',currentUser.id)
+    .single();
+
+  if (profileError) {
+    showMessage('loginMessage','No se pudo consultar tu perfil.');
+    showPublicPortal();
+    return;
+  }
+
+  currentProfile = profile;
+
+  $('dtPublic').style.display = 'none';
+  $('dtAuthenticated').style.display = 'block';
+  $('accountTitle').textContent = profile.full_name || 'Mi cuenta';
+
+  if (profile.role === 'admin') {
+    $('accountDescription').textContent = 'Panel de administración';
+    await renderAdminPanel();
+
+  } else if (profile.role === 'pending') {
+    $('accountDescription').textContent = 'Cuenta pendiente de autorización';
+    $('accountContent').innerHTML = `
+      <div class="notice warn">
+        Tu cuenta todavía no fue habilitada por la organización.
+      </div>
+    `;
+
+  } else if (profile.role === 'dt') {
+    $('accountDescription').textContent = 'Director técnico';
+    await renderDTAccount();
+
+  } else {
+    $('accountDescription').textContent = 'Acceso no habilitado';
+    $('accountContent').innerHTML = `
+      <div class="notice warn">
+        Tu perfil no tiene permisos para acceder al portal.
+      </div>
+    `;
+  }
+}
+
+// Panel de administrador
+async function renderAdminPanel() {
+  const {data:requests,error} = await db
+    .from('access_requests')
+    .select(`
+      id,
+      full_name,
+      email,
+      status,
+      created_at,
+      teams:requested_team_id(name,category,zone)
+    `)
+    .order('created_at',{ascending:false});
+
+  if (error) {
+    $('accountContent').innerHTML =
+      `<div class="error">${escapeHTML(error.message)}</div>`;
+    return;
+  }
+
+  if (!requests.length) {
+    $('accountContent').innerHTML =
+      '<p class="muted">Todavía no hay solicitudes.</p>';
+    return;
+  }
+
+  $('accountContent').innerHTML = `
+    <h2>Solicitudes de acceso</h2>
+    ${requests.map(request => {
+      const team = request.teams;
+      const teamLabel = team
+        ? `${team.name} · Categoría ${team.category} · Zona ${team.zone}`
+        : 'Equipo no disponible';
+
+      return `
+        <div class="request">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <b>${escapeHTML(request.full_name)}</b>
+            <span class="pill ${
+              request.status === 'pending' ? 'warn' :
+              request.status === 'approved' ? '' : 'gray'
+            }">${escapeHTML(request.status)}</span>
+          </div>
+
+          <div class="small muted">${escapeHTML(request.email)}</div>
+          <div class="small">${escapeHTML(teamLabel)}</div>
+          <div class="small muted">
+            Solicitud: ${escapeHTML(formatDate(request.created_at))}
+          </div>
+
+          ${request.status === 'pending' ? `
+            <div class="request-actions">
+              <input
+                id="user-${request.id}"
+                placeholder="UUID del usuario invitado en Supabase"
+              >
+              <button class="action" onclick="approveRequest('${request.id}')">
+                Aprobar
+              </button>
+              <button class="action danger" onclick="rejectRequest('${request.id}')">
+                Rechazar
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+// Aprobar solicitud
+async function approveRequest(requestId) {
+  const userId = $(`user-${requestId}`).value.trim();
+
+  if (!userId) {
+    alert('Primero ingresá el UUID del usuario invitado.');
+    return;
+  }
+
+  if (!confirm('¿Confirmás la aprobación y asignación del equipo?')) return;
+
+  const {data,error} = await db.rpc('approve_access_request',{
+    p_request_id:requestId,
+    p_user_id:userId
+  });
+
+  if (error) {
+    alert('No se pudo aprobar: ' + error.message);
+    return;
+  }
+
+  alert(data);
+  await renderAdminPanel();
+}
+
+// Rechazar solicitud
+async function rejectRequest(requestId) {
+  if (!confirm('¿Querés rechazar esta solicitud?')) return;
+
+  const {data,error} = await db.rpc('reject_access_request',{
+    p_request_id:requestId
+  });
+
+  if (error) {
+    alert('No se pudo rechazar: ' + error.message);
+    return;
+  }
+
+  alert(data);
+  await renderAdminPanel();
+}
+
+// Cuenta de DT
+async function renderDTAccount() {
+  const {data:memberships,error} = await db
+    .from('team_memberships')
+    .select('team_id,teams(name,category,zone)')
+    .eq('user_id',currentUser.id);
+
+  if (error) {
+    $('accountContent').innerHTML =
+      `<div class="error">${escapeHTML(error.message)}</div>`;
+    return;
+  }
+
+  if (!memberships || !memberships.length) {
+    $('accountContent').innerHTML = `
+      <div class="notice warn">
+        Tu cuenta todavía no tiene un equipo asignado.
+      </div>
+    `;
+    return;
+  }
+
+  const team = memberships[0].teams;
+
+  $('accountContent').innerHTML = `
+    <h2>Mi equipo</h2>
+    <div class="notice">
+      <b>${escapeHTML(team.name)}</b><br>
+      Categoría ${escapeHTML(team.category)} ·
+      Zona ${escapeHTML(team.zone)}
+    </div>
+    <p class="muted small">
+      La carga y confirmación de resultados se habilitará en la siguiente etapa.
+    </p>
+  `;
+}
+
+// Navegación
 document.querySelectorAll('.navbtn').forEach(button => {
-  button.addEventListener('click', () => {
+  button.addEventListener('click',() => {
     document.querySelectorAll('.navbtn').forEach(b =>
-      b.classList.toggle('active', b === button)
+      b.classList.toggle('active',b === button)
     );
     document.querySelectorAll('.section').forEach(section =>
-      section.classList.toggle('active', section.id === button.dataset.tab)
+      section.classList.toggle('active',section.id === button.dataset.tab)
     );
   });
 });
 
+// Inicialización
 loadData();
+checkSession();
+
+db.auth.onAuthStateChange(() => {
+  setTimeout(checkSession,0);
+});
 </script>
 
 </body>
