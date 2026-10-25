@@ -1,4 +1,286 @@
-```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UBA Fútbol — Portal del torneo</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root{
+--bg:#f3f5f4;--card:#fff;--ink:#17231d;--muted:#68756d;
+--line:#e1e8e3;--green:#173d2b;--green2:#24563d;
+--lime:#d9f36a;--gold:#c99b35;--red:#b43e3e;
+--shadow:0 8px 28px #173d2b0d
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
+header{background:var(--green);color:#fff;padding:22px max(18px,calc((100% - 1120px)/2))}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.brand{font-size:23px;font-weight:900;letter-spacing:.04em}
+.brand span{color:var(--lime)}
+.tag{font-size:11px;letter-spacing:.12em;color:#c7d9ce}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+.navbtn{border:1px solid #ffffff35;background:transparent;color:#e5eee8;padding:9px 13px;border-radius:999px;cursor:pointer;font-weight:650}
+.navbtn.active{background:var(--lime);color:var(--green);border-color:var(--lime)}
+main{max-width:1120px;margin:25px auto;padding:0 18px 50px}
+.hero{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:20px}
+.eyebrow{color:var(--green2);font-size:11px;font-weight:800;letter-spacing:.13em}
+.hero h1{font-size:clamp(26px,4vw,38px);line-height:1.08;margin:5px 0}
+.muted{color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:800;background:#edf5ee;color:#27613e}
+.pill.warn{background:#fff3dc;color:#8b5d0c}
+.pill.gray{background:#eef1ef;color:#5c6861}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:17px;box-shadow:var(--shadow)}
+.span8{grid-column:span 8}.span4{grid-column:span 4}
+.span6{grid-column:span 6}.span12{grid-column:span 12}
+.card h2{font-size:17px;margin:0 0 13px}
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#f5f8f5;border-radius:12px;padding:13px}
+.stat b{font-size:25px;display:block}
+.stat small{color:var(--muted)}
+.match{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);gap:10px}
+.match:last-child{border:0}
+.teams{font-weight:750}
+.score{font-size:19px;font-weight:900;white-space:nowrap}
+.section{display:none}
+.section.active{display:block}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:9px 7px;border-bottom:1px solid var(--line)}
+td{padding:10px 7px;border-bottom:1px solid #edf0ed}
+tr:last-child td{border:0}
+.num{text-align:center;font-variant-numeric:tabular-nums}
+.teamcell{font-weight:750}
+.notice{padding:12px 14px;border-radius:12px;background:#f1f6f1;color:#365443;font-size:13px}
+.notice.warn{background:#fff6e6;color:#815a17}
+.groupgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.group h3{margin:0 0 8px;font-size:14px}
+.group .slot{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.empty{color:#9aa59e;font-style:italic}
+.bracket{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;overflow:auto}
+.round h3{font-size:12px;color:var(--muted);text-transform:uppercase}
+.game{border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:10px;font-size:12px}
+.game div{padding:4px 0}
+.player{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+.small{font-size:12px}
+.footer{color:#87928a;text-align:center;font-size:11px;margin-top:28px}
+.loading{padding:20px;text-align:center;color:var(--muted)}
+.error{background:#fff0f0;color:#a52b2b;padding:13px;border-radius:10px}
+
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;font-weight:800;color:var(--muted)}
+.field input,.field select{
+width:100%;padding:11px 12px;border:1px solid var(--line);
+border-radius:10px;font:inherit;background:#fff;color:var(--ink)
+}
+.action{
+border:0;border-radius:10px;background:var(--green);color:#fff;
+padding:11px 16px;font-weight:800;cursor:pointer
+}
+.action.secondary{background:#eaf0eb;color:var(--green)}
+.action.danger{background:#a83232}
+.action:disabled{opacity:.5;cursor:not-allowed}
+.request{padding:14px 0;border-bottom:1px solid var(--line)}
+.request:last-child{border:0}
+.request-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.request-actions input{
+min-width:220px;flex:1;padding:9px;border:1px solid var(--line);border-radius:8px
+}
+.report-card{padding:14px 0;border-bottom:1px solid var(--line)}
+.report-card:last-child{border:0}
+.report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.report-grid .field input{min-width:0}
+.report-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.report-meta{font-size:12px;color:var(--muted);margin-top:5px}
+@media(max-width:600px){.report-grid{grid-template-columns:1fr}}
+@media(max-width:720px){
+.span8,.span4,.span6{grid-column:span 12}
+.statrow{grid-template-columns:repeat(2,1fr)}
+.groupgrid{grid-template-columns:1fr}
+.hero{display:block}
+.hero .pill{margin-top:10px}
+.bracket{grid-template-columns:repeat(4,180px)}
+}
+@media(max-width:600px){
+.form-grid{grid-template-columns:1fr}
+.field.full{grid-column:auto}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="top">
+<div>
+<div class="brand">UBA <span>FÚTBOL</span></div>
+<div class="tag">TORNEO UNIVERSITARIO · TEMPORADA 2026</div>
+</div>
+<div class="pill" id="connectionStatus" style="background:#294f3a;color:#e6f4e9">
+● CONECTANDO
+</div>
+</div>
+
+<nav id="nav">
+<button class="navbtn active" data-tab="inicio">Inicio</button>
+<button class="navbtn" data-tab="fixture">Fixture</button>
+<button class="navbtn" data-tab="posiciones">Posiciones</button>
+<button class="navbtn" data-tab="playoffs">Playoffs</button>
+<button class="navbtn" data-tab="estadisticas">Estadísticas</button>
+<button class="navbtn" data-tab="dt">Portal DT</button>
+</nav>
+</header>
+
+<main>
+
+<section class="section active" id="inicio">
+<div class="hero">
+<div>
+<div class="eyebrow">CAMPEONATO UBA</div>
+<h1>El torneo, en un solo lugar.</h1>
+<div class="muted">Resultados, posiciones y estadísticas actualizadas.</div>
+</div>
+<span class="pill warn">Temporada 2026</span>
+</div>
+
+<div class="grid">
+<div class="card span8">
+<h2>Resumen del campeonato</h2>
+<div class="statrow">
+<div class="stat"><b id="totalTeams">—</b><small>Equipos</small></div>
+<div class="stat"><b id="totalZones">—</b><small>Zonas</small></div>
+<div class="stat"><b>8</b><small>Clasifican en Cat. A</small></div>
+<div class="stat"><b id="totalResults">—</b><small>Resultados oficiales</small></div>
+</div>
+</div>
+
+<div class="card span4">
+<h2>Próximo partido</h2>
+<div id="nextMatch" class="loading">Cargando...</div>
+</div>
+
+<div class="card span6">
+<h2>Últimos resultados</h2>
+<div id="latestResults" class="loading">Cargando...</div>
+</div>
+
+<div class="card span6">
+<h2>Formato de competición</h2>
+<p class="muted small">
+Categoría A: tres zonas de cuatro equipos. Los dos primeros de cada zona y los dos mejores terceros clasifican a cuartos de final de la Copa de Oro.
+</p>
+<p class="muted small">
+Categoría B: el primero de la categoría juega la Copa de Plata contra el peor tercero de Categoría A.
+</p>
+<span class="pill">Victoria 3 pts · Empate 1 pt · Derrota 0 pts</span>
+</div>
+
+<div class="card span12">
+<h2>Información importante</h2>
+<div class="notice">
+Los resultados oficiales se publican una vez confirmados. Los resultados históricos fueron incorporados por la organización.
+</div>
+</div>
+</div>
+</section>
+
+<section class="section" id="fixture">
+<div class="hero">
+<div>
+<div class="eyebrow">CALENDARIO</div>
+<h1>Fixture y resultados</h1>
+<div class="muted">Calendario oficial del torneo.</div>
+</div>
+</div>
+<div id="fixtureContent" class="loading">Cargando fixture...</div>
+</section>
+
+<section class="section" id="posiciones">
+<div class="hero">
+<div>
+<div class="eyebrow">FASE DE GRUPOS</div>
+<h1>Tabla de posiciones</h1>
+<div class="muted">Se computan exclusivamente los resultados confirmados.</div>
+</div>
+</div>
+<div id="standingsContent" class="loading">Calculando posiciones...</div>
+</section>
+
+<section class="section" id="playoffs">
+<div class="hero">
+<div>
+<div class="eyebrow">ELIMINACIÓN DIRECTA</div>
+<h1>Copas y clasificación</h1>
+<div class="muted">Formato de definición del campeonato.</div>
+</div>
+</div>
+
+<div class="grid">
+<div class="card span6">
+<h2>🏆 Copa de Oro · Categoría A</h2>
+<p class="muted small">
+Clasifican los dos primeros de cada zona y los dos mejores terceros. Los ocho equipos disputan cuartos de final, semifinales y final.
+</p>
+<span class="pill">8 clasificados</span>
+</div>
+<div class="card span6">
+<h2>🥈 Copa de Plata · Categoría B</h2>
+<p class="muted small">
+El primero de Categoría B disputa la Copa de Plata contra el peor tercero de Categoría A.
+</p>
+<span class="pill">Cruce por definir</span>
+</div>
+<div class="card span12">
+<div class="notice warn">
+Los cruces todavía no están definidos. Se publicarán cuando finalice la fase de grupos y se determinen los clasificados.
+</div>
+</div>
+</div>
+</section>
+
+<section class="section" id="estadisticas">
+<div class="hero">
+<div>
+<div class="eyebrow">DATOS INDIVIDUALES</div>
+<h1>Estadísticas</h1>
+<div class="muted">Registros individuales del campeonato.</div>
+</div>
+</div>
+<div class="grid">
+<div class="card span12">
+<h2>Estadísticas de jugadores</h2>
+<div class="notice">
+Todavía no hay registros individuales disponibles. Los goleadores, asistidores y las tarjetas se incorporarán cuando esté habilitada la carga completa de las planillas.
+</div>
+</div>
+</div>
+</section>
+
+<section class="section" id="dt">
+<div class="hero">
+<div>
+<div class="eyebrow">ÁREA PRIVADA</div>
+<h1>Portal de directores técnicos</h1>
+<div class="muted">Acceso individual para los DT de cada equipo.</div>
+</div>
+</div>
+
+<div id="dtPublic">
+<div class="grid">
+
+<div class="card span6">
+<h2>Solicitar acceso</h2>
+<p class="muted small">
+Completá tus datos. La organización deberá autorizar tu ingreso.
+</p>
+
+<form id="requestForm" class="form-grid">
+<div class="field full">
+<label for="requestName">Nombre y apellido</label>
 <input id="requestName" required maxlength="100">
 </div>
 
@@ -70,7 +352,6 @@ UBA FÚTBOL · Temporada 2026 · Información sincronizada con la base de datos 
 </div>
 
 </main>
-
 <script>
 const SUPABASE_URL = 'https://cfqhyvxhbsudwpncalbp.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_2oPtzlzvX_aGo9OwRnDSag_9fElkuKB';
@@ -325,17 +606,15 @@ function renderStandings() {
   const matchesB = matches.filter(m =>
     idsB.includes(m.home_team_id) && idsB.includes(m.away_team_id)
   );
+
   const rowsB = calculateStandings(categoryB, matchesB);
 
-  $('standingsContent').innerHTML = htmlA + `
+  $('standingsContent').innerHTML = `
+    ${htmlA}
     <div class="card">
       <h2>Categoría B · Zona única</h2>
       ${standingsTable(rowsB)}
     </div>
-    <p class="muted small">
-      Desempate: puntos y diferencia de gol.
-      Solo se consideran partidos confirmados.
-    </p>
   `;
 }
 
@@ -572,13 +851,13 @@ async function checkSession() {
   }
 }
 
-// Panel de administrador: solicitudes y partidos en revisión
+// Panel de administrador: solicitudes y partidos observados
 async function renderAdminPanel() {
   $('accountContent').innerHTML = '<div class="loading">Cargando panel de administración...</div>';
 
   const [requestsResult, disputedResult] = await Promise.all([
     db.from('access_requests')
-      .select('id,full_name,email,status,created_at,requested_team_id')
+      .select('id,full_name,email,requested_team_id,status,created_at')
       .order('created_at',{ascending:false}),
     db.from('matches')
       .select('id,home_team_id,away_team_id,match_date,status,home_score,away_score')
@@ -593,174 +872,246 @@ async function renderAdminPanel() {
   }
 
   const requests = requestsResult.data || [];
-  const disputedMatches = disputedResult.data || [];
+  const disputed = disputedResult.data || [];
   let reports = [];
   let disputes = [];
 
-  if (disputedMatches.length) {
-    const ids = disputedMatches.map(m => m.id);
+  if (disputed.length) {
+    const ids = disputed.map(m => m.id);
     const [reportsResult, disputesResult] = await Promise.all([
       db.from('match_reports')
-        .select('match_id,team_id,home_score,away_score,submitted_by,submitted_at')
+        .select('match_id,team_id,home_score,away_score,submitted_at')
         .in('match_id',ids),
       db.from('match_disputes')
-        .select('match_id,description,resolution,created_at')
+        .select('match_id,description,created_at')
         .in('match_id',ids)
+        .is('resolved_at',null)
     ]);
 
     if (reportsResult.error || disputesResult.error) {
-      $('accountContent').innerHTML = `<div class="error">${escapeHTML((reportsResult.error || disputesResult.error).message)}</div>`;
+      const error = reportsResult.error || disputesResult.error;
+      $('accountContent').innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`;
       return;
     }
+
     reports = reportsResult.data || [];
     disputes = disputesResult.data || [];
   }
 
-  const requestsHTML = requests.length ? requests.map(request => {
-    const team = teams.find(t => t.id === request.requested_team_id);
-    const teamLabel = team
-      ? `${team.name} · Categoría ${team.category} · ${team.category === 'B' ? 'Zona única' : 'Zona ' + team.zone}`
-      : 'Equipo no disponible';
-
-    return `
-      <div class="request">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
-          <b>${escapeHTML(request.full_name)}</b>
-          <span class="pill ${request.status === 'pending' ? 'warn' : request.status === 'approved' ? '' : 'gray'}">${escapeHTML(request.status)}</span>
-        </div>
-        <div class="small muted">${escapeHTML(request.email)}</div>
-        <div class="small">${escapeHTML(teamLabel)}</div>
-        <div class="small muted">Solicitud: ${escapeHTML(formatDate(request.created_at))}</div>
-        ${request.status === 'pending' ? `
-          <div class="request-actions">
-            <input id="user-${request.id}" placeholder="UUID del usuario invitado en Supabase">
-            <button class="action" onclick="approveRequest('${request.id}')">Aprobar</button>
-            <button class="action danger" onclick="rejectRequest('${request.id}')">Rechazar</button>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }).join('') : '<p class="muted small">Todavía no hay solicitudes.</p>';
-
-  const disputedHTML = disputedMatches.length ? disputedMatches.map(match => {
-    const homeReport = reports.find(r => r.match_id === match.id && r.team_id === match.home_team_id);
-    const awayReport = reports.find(r => r.match_id === match.id && r.team_id === match.away_team_id);
-    const dispute = disputes.find(d => d.match_id === match.id);
-
-    return `
-      <div class="report-card">
-        <b>${escapeHTML(teamName(match.home_team_id))} vs. ${escapeHTML(teamName(match.away_team_id))}</b>
-        <div class="report-meta">${escapeHTML(formatDate(match.match_date))}</div>
-        <div class="notice warn" style="margin-top:9px">
-          Reporte de ${escapeHTML(teamName(match.home_team_id))}: <b>${homeReport ? `${homeReport.home_score}–${homeReport.away_score}` : 'Sin reporte'}</b><br>
-          Reporte de ${escapeHTML(teamName(match.away_team_id))}: <b>${awayReport ? `${awayReport.home_score}–${awayReport.away_score}` : 'Sin reporte'}</b>
-          ${dispute?.description ? `<br>Detalle: ${escapeHTML(dispute.description)}` : ''}
-        </div>
-        <div class="report-grid">
-          <div class="field">
-            <label for="resolve-home-${match.id}">Goles oficiales · ${escapeHTML(teamName(match.home_team_id))}</label>
-            <input id="resolve-home-${match.id}" type="number" min="0" step="1" required>
-          </div>
-          <div class="field">
-            <label for="resolve-away-${match.id}">Goles oficiales · ${escapeHTML(teamName(match.away_team_id))}</label>
-            <input id="resolve-away-${match.id}" type="number" min="0" step="1" required>
-          </div>
-          <div class="field" style="grid-column:1/-1">
-            <label for="resolve-reason-${match.id}">Fundamento de la resolución</label>
-            <input id="resolve-reason-${match.id}" required maxlength="1000" placeholder="Explicá cómo se determinó el resultado oficial">
-          </div>
-        </div>
-        <div class="report-actions">
-          <button class="action" onclick="resolveDispute('${match.id}')">Publicar resultado oficial</button>
-        </div>
-      </div>
-    `;
-  }).join('') : '<p class="muted small">No hay partidos en revisión.</p>';
+  const pendingRequests = requests.filter(r => r.status === 'pending');
 
   $('accountContent').innerHTML = `
-    <section>
+    <section class="admin-section">
       <h2>Solicitudes de acceso</h2>
-      ${requestsHTML}
+      ${pendingRequests.length ? pendingRequests.map(request => `
+        <div class="report-card">
+          <div>
+            <strong>${escapeHTML(request.full_name)}</strong>
+            <div class="small muted">${escapeHTML(request.email)}</div>
+            <div class="small">
+              Equipo solicitado: ${escapeHTML(teamName(request.requested_team_id))}
+            </div>
+          </div>
+          <div class="report-actions">
+            <button class="btn" data-approve="${escapeHTML(request.id)}">Aprobar</button>
+            <button class="btn secondary" data-reject="${escapeHTML(request.id)}">Rechazar</button>
+          </div>
+        </div>
+      `).join('') : '<p class="muted small">No hay solicitudes pendientes.</p>'}
     </section>
-    <section style="margin-top:28px">
+
+    <section class="admin-section">
       <h2>Partidos en revisión</h2>
-      <p class="muted small">Revisá los dos reportes y establecé el resultado oficial. Esta resolución queda registrada como decisión de la organización.</p>
-      ${disputedHTML}
-    </section>`;
+      ${disputed.length ? disputed.map(match => {
+        const matchReports = reports.filter(r => r.match_id === match.id);
+        const dispute = disputes.find(d => d.match_id === match.id);
+
+        return `
+          <div class="report-card">
+            <div>
+              <strong>
+                ${escapeHTML(teamName(match.home_team_id))}
+                vs.
+                ${escapeHTML(teamName(match.away_team_id))}
+              </strong>
+              <div class="small muted">${escapeHTML(formatDate(match.match_date))}</div>
+              ${matchReports.map(report => `
+                <div class="small">
+                  ${escapeHTML(teamName(report.team_id))} informó:
+                  ${report.home_score} – ${report.away_score}
+                </div>
+              `).join('')}
+              ${dispute ? `<div class="small muted">${escapeHTML(dispute.description || '')}</div>` : ''}
+            </div>
+
+            <form class="resolve-form" data-match="${escapeHTML(match.id)}">
+              <label>Resultado oficial</label>
+              <div class="report-grid">
+                <input type="number" min="0" name="homeScore" placeholder="Local" required>
+                <input type="number" min="0" name="awayScore" placeholder="Visitante" required>
+              </div>
+              <label>Motivo de resolución</label>
+              <textarea name="resolution" placeholder="Explicá la resolución..." required></textarea>
+              <button class="btn" type="submit">Confirmar resultado oficial</button>
+              <div class="small" data-resolve-message></div>
+            </form>
+          </div>
+        `;
+      }).join('') : '<p class="muted small">No hay partidos en disputa.</p>'}
+    </section>
+
+    <section class="admin-section">
+      <h2>Solicitudes anteriores</h2>
+      ${requests.filter(r => r.status !== 'pending').map(request => `
+        <div class="small muted">
+          ${escapeHTML(request.full_name)} · ${escapeHTML(teamName(request.requested_team_id))}
+          · ${escapeHTML(request.status)}
+        </div>
+      `).join('') || '<p class="muted small">Todavía no hay solicitudes revisadas.</p>'}
+    </section>
+  `;
+
+  $('accountContent').querySelectorAll('[data-approve]').forEach(button => {
+    button.addEventListener('click', () => reviewAccessRequest(button.dataset.approve,'approved'));
+  });
+
+  $('accountContent').querySelectorAll('[data-reject]').forEach(button => {
+    button.addEventListener('click', () => reviewAccessRequest(button.dataset.reject,'rejected'));
+  });
+
+  $('accountContent').querySelectorAll('.resolve-form').forEach(form => {
+    form.addEventListener('submit', resolveDispute);
+  });
 }
 
-// Resolver una discrepancia como administrador
-async function resolveDispute(matchId) {
-  const homeRaw = $(`resolve-home-${matchId}`).value;
-  const awayRaw = $(`resolve-away-${matchId}`).value;
-  const reason = $(`resolve-reason-${matchId}`).value.trim();
-  const homeScore = Number(homeRaw);
-  const awayScore = Number(awayRaw);
+async function reviewAccessRequest(requestId,status) {
+  const request = await db.from('access_requests')
+    .select('id,full_name,email,requested_team_id')
+    .eq('id',requestId)
+    .single();
 
-  if (homeRaw === '' || awayRaw === '' || !Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
-    alert('Ingresá dos resultados válidos: números enteros iguales o mayores a cero.');
+  if (request.error) {
+    alert(request.error.message);
     return;
   }
-  if (!reason) { alert('Escribí el fundamento de la resolución.'); return; }
-  if (!confirm('¿Confirmás este resultado como oficial?')) return;
 
-  const {data,error} = await db.rpc('resolve_match_dispute', {
-    p_match_id:matchId,
-    p_home_score:homeScore,
-    p_away_score:awayScore,
-    p_resolution:reason
-  });
-  if (error) { alert('No se pudo resolver el partido: ' + error.message); return; }
-  alert(data || 'Resultado oficial publicado.');
-  await loadData();
+  if (status === 'approved') {
+    const {data:profile,error:profileError} = await db
+      .from('profiles')
+      .select('id,role')
+      .eq('id', (await findUserIdByEmail(request.data.email)))
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      alert('No se encontró un usuario registrado con ese correo. El DT debe crear su cuenta antes de aprobar el acceso.');
+      return;
+    }
+
+    const {error:membershipError} = await db
+      .from('team_memberships')
+      .insert({
+        user_id:profile.id,
+        team_id:request.data.requested_team_id
+      });
+
+    if (membershipError) {
+      alert(membershipError.message);
+      return;
+    }
+
+    const {error:roleError} = await db
+      .from('profiles')
+      .update({role:'dt'})
+      .eq('id',profile.id);
+
+    if (roleError) {
+      alert(roleError.message);
+      return;
+    }
+  }
+
+  const {error} = await db
+    .from('access_requests')
+    .update({
+      status,
+      reviewed_by:currentUser.id,
+      reviewed_at:new Date().toISOString()
+    })
+    .eq('id',requestId);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
   await renderAdminPanel();
 }
 
-// Aprobar solicitud
-async function approveRequest(requestId) {
-  const userId = $(`user-${requestId}`).value.trim();
-
-  if (!userId) {
-    alert('Primero ingresá el UUID del usuario invitado.');
-    return;
-  }
-
-  if (!confirm('¿Confirmás la aprobación y asignación del equipo?')) return;
-
-  const {data,error} = await db.rpc('approve_access_request',{
-    p_request_id:requestId,
-    p_user_id:userId
+async function findUserIdByEmail(email) {
+  // La búsqueda de usuarios por correo debe realizarse de forma segura
+  // desde una función administrativa del servidor.
+  // No se consulta auth.users directamente desde el navegador.
+  const {data,error} = await db.rpc('get_user_id_by_email', {
+    p_email:email
   });
 
   if (error) {
-    alert('No se pudo aprobar: ' + error.message);
-    return;
+    console.error(error);
+    return null;
   }
 
-  alert(data);
-  await renderAdminPanel();
+  return data;
 }
 
-// Rechazar solicitud
-async function rejectRequest(requestId) {
-  if (!confirm('¿Querés rechazar esta solicitud?')) return;
+async function resolveDispute(event) {
+  event.preventDefault();
 
-  const {data,error} = await db.rpc('reject_access_request',{
-    p_request_id:requestId
-  });
+  const form = event.currentTarget;
+  const matchId = form.dataset.match;
+  const message = form.querySelector('[data-resolve-message]');
+  const button = form.querySelector('button[type="submit"]');
 
-  if (error) {
-    alert('No se pudo rechazar: ' + error.message);
-    return;
+  button.disabled = true;
+  message.textContent = 'Guardando resolución...';
+
+  try {
+    const formData = new FormData(form);
+    const homeScore = Number(formData.get('homeScore'));
+    const awayScore = Number(formData.get('awayScore'));
+    const resolution = String(formData.get('resolution')).trim();
+
+    if (!Number.isInteger(homeScore) || homeScore < 0 ||
+        !Number.isInteger(awayScore) || awayScore < 0) {
+      throw new Error('Ingresá resultados válidos.');
+    }
+
+    const {error} = await db.rpc('resolve_match_dispute', {
+      p_match_id:matchId,
+      p_home_score:homeScore,
+      p_away_score:awayScore,
+      p_resolution:resolution
+    });
+
+    if (error) throw error;
+
+    message.textContent = 'Resultado oficial guardado.';
+    await loadData();
+    await renderAdminPanel();
+
+  } catch (error) {
+    message.textContent = error.message || 'No se pudo resolver el partido.';
+  } finally {
+    button.disabled = false;
   }
-
-  alert(data);
-  await renderAdminPanel();
 }
 
-// Cuenta de DT: partidos de su equipo, reportes y confirmaciones
+// ======================================
+// CUENTA DEL DT
+// ======================================
+
 async function renderDTAccount() {
   $('accountContent').innerHTML = '<div class="loading">Cargando tus partidos...</div>';
+
   const {data:memberships,error} = await db
     .from('team_memberships')
     .select('team_id,teams(name,category,zone)')
@@ -770,14 +1121,21 @@ async function renderDTAccount() {
     $('accountContent').innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`;
     return;
   }
+
   if (!memberships || !memberships.length) {
     $('accountContent').innerHTML = '<div class="notice warn">Tu cuenta todavía no tiene un equipo asignado.</div>';
     return;
   }
 
   const teamIds = memberships.map(m => m.team_id);
-  const myMatches = matches.filter(m => teamIds.includes(m.home_team_id) || teamIds.includes(m.away_team_id));
+
+  const myMatches = matches.filter(m =>
+    teamIds.includes(m.home_team_id) ||
+    teamIds.includes(m.away_team_id)
+  );
+
   const matchIds = myMatches.map(m => m.id);
+
   let reports = [];
   let confirmations = [];
 
@@ -786,55 +1144,144 @@ async function renderDTAccount() {
       db.from('match_reports')
         .select('match_id,team_id,home_score,away_score,submitted_by,submitted_at')
         .in('match_id',matchIds),
+
       db.from('match_confirmations')
         .select('match_id,team_id,confirmed_by,confirmed_at')
         .in('match_id',matchIds)
     ]);
+
     if (reportsResult.error || confirmationsResult.error) {
       const error = reportsResult.error || confirmationsResult.error;
       $('accountContent').innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`;
       return;
     }
+
     reports = reportsResult.data || [];
     confirmations = confirmationsResult.data || [];
   }
 
   const teamCards = memberships.map(m => {
     const t = m.teams;
-    return `<div class="notice" style="margin-bottom:8px"><b>${escapeHTML(t?.name || teamName(m.team_id))}</b><br>Categoría ${escapeHTML(t?.category || '—')} · ${t?.category === 'B' ? 'Zona única' : 'Zona ' + escapeHTML(t?.zone || '—')}</div>`;
+
+    return `
+      <div class="notice" style="margin-bottom:8px">
+        <b>${escapeHTML(t?.name || teamName(m.team_id))}</b><br>
+        Categoría ${escapeHTML(t?.category || '—')} ·
+        ${t?.category === 'B'
+          ? 'Zona única'
+          : 'Zona ' + escapeHTML(t?.zone || '—')}
+      </div>
+    `;
   }).join('');
 
   const matchCards = myMatches.length ? myMatches.map(match => {
     const isHome = teamIds.includes(match.home_team_id);
     const myTeamId = isHome ? match.home_team_id : match.away_team_id;
     const opponentId = isHome ? match.away_team_id : match.home_team_id;
-    const ownReport = reports.find(r => r.match_id === match.id && r.team_id === myTeamId);
-    const opponentReport = reports.find(r => r.match_id === match.id && r.team_id === opponentId);
-    const myConfirmation = confirmations.find(c => c.match_id === match.id && c.team_id === myTeamId);
-    const opponentConfirmation = confirmations.find(c => c.match_id === match.id && c.team_id === opponentId);
-    const reportsMatch = ownReport && opponentReport && ownReport.home_score === opponentReport.home_score && ownReport.away_score === opponentReport.away_score;
+
+    const ownReport = reports.find(r =>
+      r.match_id === match.id && r.team_id === myTeamId
+    );
+
+    const opponentReport = reports.find(r =>
+      r.match_id === match.id && r.team_id === opponentId
+    );
+
+    const myConfirmation = confirmations.find(c =>
+      c.match_id === match.id && c.team_id === myTeamId
+    );
+
+    const opponentConfirmation = confirmations.find(c =>
+      c.match_id === match.id && c.team_id === opponentId
+    );
+
+    const reportsMatch = ownReport && opponentReport &&
+      ownReport.home_score === opponentReport.home_score &&
+      ownReport.away_score === opponentReport.away_score;
 
     let body = '';
+
     if (match.status === 'confirmed') {
-      body = `<div class="notice">Resultado oficial: <b>${match.home_score}–${match.away_score}</b></div>`;
+      body = `
+        <div class="notice">
+          Resultado oficial: <b>${match.home_score}–${match.away_score}</b>
+        </div>
+      `;
+
     } else if (match.status === 'disputed') {
-      body = '<div class="notice warn">Los reportes no coinciden. El partido quedó en revisión de la organización; no se pueden realizar más cambios.</div>';
+      body = `
+        <div class="notice warn">
+          Los reportes no coinciden. El partido quedó en revisión de la organización; no se pueden realizar más cambios.
+        </div>
+      `;
+
     } else if (reportsMatch) {
       body = `
-        <div class="notice">Ambos DT informaron ${ownReport.home_score}–${ownReport.away_score}.<br>Tu confirmación: <b>${myConfirmation ? 'Realizada' : 'Pendiente'}</b> · Confirmación rival: <b>${opponentConfirmation ? 'Realizada' : 'Pendiente'}</b></div>
-        ${!myConfirmation ? `<div class="report-actions"><button class="action" onclick="confirmMatch('${match.id}')">Confirmar resultado</button></div>` : ''}
+        <div class="notice">
+          Ambos DT informaron ${ownReport.home_score}–${ownReport.away_score}.<br>
+          Tu confirmación: <b>${myConfirmation ? 'Realizada' : 'Pendiente'}</b> ·
+          Confirmación rival: <b>${opponentConfirmation ? 'Realizada' : 'Pendiente'}</b>
+        </div>
+
+        ${!myConfirmation ? `
+          <div class="report-actions">
+            <button class="action" onclick="confirmMatch('${match.id}')">
+              Confirmar resultado
+            </button>
+          </div>
+        ` : ''}
       `;
+
     } else {
       const opponentText = opponentReport
         ? `El rival informó ${opponentReport.home_score}–${opponentReport.away_score}. Compará el resultado antes de enviar el tuyo.`
         : 'Todavía falta el reporte del otro equipo.';
+
       body = `
-        ${ownReport ? `<div class="notice" style="margin-bottom:9px">Tu reporte actual: <b>${ownReport.home_score}–${ownReport.away_score}</b>. Podés corregirlo hasta confirmar.</div>` : ''}
+        ${ownReport ? `
+          <div class="notice" style="margin-bottom:9px">
+            Tu reporte actual:
+            <b>${ownReport.home_score}–${ownReport.away_score}</b>.
+            Podés corregirlo hasta confirmar.
+          </div>
+        ` : ''}
+
         <div class="small muted">${escapeHTML(opponentText)}</div>
+
         <form class="report-grid" onsubmit="submitMatchReport(event,'${match.id}')">
-          <div class="field"><label for="report-home-${match.id}">Goles ${escapeHTML(teamName(match.home_team_id))}</label><input id="report-home-${match.id}" type="number" min="0" step="1" required value="${ownReport ? ownReport.home_score : ''}"></div>
-          <div class="field"><label for="report-away-${match.id}">Goles ${escapeHTML(teamName(match.away_team_id))}</label><input id="report-away-${match.id}" type="number" min="0" step="1" required value="${ownReport ? ownReport.away_score : ''}"></div>
-          <div class="field" style="grid-column:1/-1"><button class="action" type="submit">${ownReport ? 'Actualizar mi reporte' : 'Enviar resultado'}</button></div>
+          <div class="field">
+            <label for="report-home-${match.id}">
+              Goles ${escapeHTML(teamName(match.home_team_id))}
+            </label>
+            <input
+              id="report-home-${match.id}"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value="${ownReport ? ownReport.home_score : ''}"
+            >
+          </div>
+
+          <div class="field">
+            <label for="report-away-${match.id}">
+              Goles ${escapeHTML(teamName(match.away_team_id))}
+            </label>
+            <input
+              id="report-away-${match.id}"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value="${ownReport ? ownReport.away_score : ''}"
+            >
+          </div>
+
+          <div class="field" style="grid-column:1/-1">
+            <button class="action" type="submit">
+              ${ownReport ? 'Actualizar mi reporte' : 'Enviar resultado'}
+            </button>
+          </div>
         </form>
       `;
     }
@@ -842,77 +1289,149 @@ async function renderDTAccount() {
     return `
       <div class="report-card">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
-          <div><b>${escapeHTML(teamName(match.home_team_id))} vs. ${escapeHTML(teamName(match.away_team_id))}</b><div class="report-meta">${escapeHTML(formatDate(match.match_date))}</div></div>
-          <span class="pill ${match.status === 'confirmed' ? '' : 'warn'}">${escapeHTML(statusLabel(match.status))}</span>
+          <div>
+            <b>
+              ${escapeHTML(teamName(match.home_team_id))}
+              vs.
+              ${escapeHTML(teamName(match.away_team_id))}
+            </b>
+            <div class="report-meta">${escapeHTML(formatDate(match.match_date))}</div>
+          </div>
+
+          <span class="pill ${match.status === 'confirmed' ? '' : 'warn'}">
+            ${escapeHTML(statusLabel(match.status))}
+          </span>
         </div>
+
         ${body}
-      </div>`;
+      </div>
+    `;
   }).join('') : '<p class="muted small">Todavía no hay partidos cargados para tu equipo.</p>';
 
   $('accountContent').innerHTML = `
     <h2>Mi equipo</h2>
     ${teamCards}
+
     <h2 style="margin-top:24px">Mis partidos</h2>
-    <p class="muted small">Cada DT carga el resultado desde su cuenta. Si ambos reportes coinciden, los dos deben confirmarlo para hacerlo oficial. Si difieren, interviene la organización.</p>
-    ${matchCards}`;
+
+    <p class="muted small">
+      Cada DT carga el resultado desde su cuenta. Si ambos reportes coinciden,
+      los dos deben confirmarlo para hacerlo oficial. Si difieren,
+      interviene la organización.
+    </p>
+
+    ${matchCards}
+  `;
 }
+
+// ======================================
+// ENVÍO DE RESULTADOS
+// ======================================
 
 async function submitMatchReport(event, matchId) {
   event.preventDefault();
+
   const homeRaw = $(`report-home-${matchId}`).value;
   const awayRaw = $(`report-away-${matchId}`).value;
+
   const homeScore = Number(homeRaw);
   const awayScore = Number(awayRaw);
-  if (homeRaw === '' || awayRaw === '' || !Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
+
+  if (
+    homeRaw === '' ||
+    awayRaw === '' ||
+    !Number.isInteger(homeScore) ||
+    !Number.isInteger(awayScore) ||
+    homeScore < 0 ||
+    awayScore < 0
+  ) {
     alert('Ingresá dos resultados válidos: números enteros iguales o mayores a cero.');
     return;
   }
+
   const button = event.submitter;
-  if (button) { button.disabled = true; button.textContent = 'Enviando...'; }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Enviando...';
+  }
+
   const {data,error} = await db.rpc('submit_match_report', {
     p_match_id:matchId,
     p_home_score:homeScore,
     p_away_score:awayScore
   });
+
   if (error) {
     alert('No se pudo enviar el resultado: ' + error.message);
-    if (button) { button.disabled = false; button.textContent = 'Reintentar'; }
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Reintentar';
+    }
+
     return;
   }
+
   alert(data || 'Reporte enviado.');
+
   await loadData();
   await renderDTAccount();
 }
+
+// ======================================
+// DOBLE CONFIRMACIÓN
+// ======================================
 
 async function confirmMatch(matchId) {
-  if (!confirm('¿Confirmás que el resultado informado por ambos equipos es correcto?')) return;
-  const {data,error} = await db.rpc('confirm_match_result',{p_match_id:matchId});
-  if (error) { alert('No se pudo confirmar: ' + error.message); return; }
+  if (!confirm('¿Confirmás que el resultado informado por ambos equipos es correcto?')) {
+    return;
+  }
+
+  const {data,error} = await db.rpc('confirm_match_result', {
+    p_match_id:matchId
+  });
+
+  if (error) {
+    alert('No se pudo confirmar: ' + error.message);
+    return;
+  }
+
   alert(data || 'Confirmación registrada.');
+
   await loadData();
   await renderDTAccount();
 }
 
-// Navegación
+// ======================================
+// NAVEGACIÓN
+// ======================================
+
 document.querySelectorAll('.navbtn').forEach(button => {
   button.addEventListener('click',() => {
     document.querySelectorAll('.navbtn').forEach(b =>
       b.classList.toggle('active',b === button)
     );
+
     document.querySelectorAll('.section').forEach(section =>
       section.classList.toggle('active',section.id === button.dataset.tab)
     );
   });
 });
 
-// Inicialización
+// ======================================
+// INICIALIZACIÓN
+// ======================================
+
 loadData();
 checkSession();
 
 db.auth.onAuthStateChange(() => {
   setTimeout(checkSession,0);
 });
+
 </script>
 
 </body>
 </html>
+  
