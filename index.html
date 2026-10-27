@@ -96,6 +96,10 @@ min-width:220px;flex:1;padding:9px;border:1px solid var(--line);border-radius:8p
 .report-grid .field input{min-width:0}
 .report-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .report-meta{font-size:12px;color:var(--muted);margin-top:5px}
+.goal-entry{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:10px;background:#f5f8f5;border-radius:10px;margin:8px 0}
+.goal-entry .field input{min-width:0}
+.stats-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:600px){.goal-entry,.stats-summary{grid-template-columns:1fr}}
 @media(max-width:600px){.report-grid{grid-template-columns:1fr}}
 @media(max-width:720px){
 .span8,.span4,.span6{grid-column:span 12}
@@ -253,9 +257,7 @@ Los cruces todavía no están definidos. Se publicarán cuando finalice la fase 
 <div class="grid">
 <div class="card span12">
 <h2>Estadísticas de jugadores</h2>
-<div class="notice">
-Todavía no hay registros individuales disponibles. Los goleadores, asistidores y las tarjetas se incorporarán cuando esté habilitada la carga completa de las planillas.
-</div>
+<div id="playerStatsContent" class="muted">Cargando estadísticas individuales...</div>
 </div>
 </div>
 </section>
@@ -649,6 +651,7 @@ async function loadData() {
     renderFixture();
     renderStandings();
     renderTeamOptions();
+    renderPlayerStats();
 
   } catch (error) {
     console.error('Error al consultar Supabase:', error);
@@ -1128,26 +1131,31 @@ async function renderDTAccount() {
 
   let reports = [];
   let confirmations = [];
+  let playerStats = [];
 
   if (matchIds.length) {
-    const [reportsResult, confirmationsResult] = await Promise.all([
+    const [reportsResult, confirmationsResult, statsResult] = await Promise.all([
       db.from('match_reports')
         .select('match_id,team_id,home_score,away_score,submitted_by,submitted_at')
         .in('match_id',matchIds),
 
       db.from('match_confirmations')
         .select('match_id,team_id,confirmed_by,confirmed_at')
+        .in('match_id',matchIds),
+      db.from('match_player_stats')
+        .select('match_id,team_id,goal_number,scorer_surname,assister_surname')
         .in('match_id',matchIds)
     ]);
 
-    if (reportsResult.error || confirmationsResult.error) {
-      const error = reportsResult.error || confirmationsResult.error;
+    if (reportsResult.error || confirmationsResult.error || statsResult.error) {
+      const error = reportsResult.error || confirmationsResult.error || statsResult.error;
       $('accountContent').innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`;
       return;
     }
 
     reports = reportsResult.data || [];
     confirmations = confirmationsResult.data || [];
+    playerStats = statsResult.data || [];
   }
 
   const teamCards = memberships.map(m => {
@@ -1188,6 +1196,26 @@ async function renderDTAccount() {
     const reportsMatch = ownReport && opponentReport &&
       ownReport.home_score === opponentReport.home_score &&
       ownReport.away_score === opponentReport.away_score;
+    const ownGoals = ownReport ? Number(isHome ? ownReport.home_score : ownReport.away_score) : 0;
+    const ownStats = playerStats.filter(x => x.match_id === match.id && x.team_id === myTeamId)
+      .sort((a,b) => a.goal_number - b.goal_number);
+    const statsEditable = Boolean(ownReport) && match.status !== 'disputed';
+    const statsHTML = statsEditable ? `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <b>Goleadores y asistidores de ${escapeHTML(teamName(myTeamId))}</b>
+        <p class="small muted">Cargá un registro por cada gol de tu equipo. El asistidor es opcional. Estas estadísticas las confirma únicamente tu equipo.</p>
+        <form onsubmit="savePlayerStats(event,'${match.id}','${myTeamId}',${ownGoals})">
+          ${Array.from({length:ownGoals},(_,i)=>{
+            const stat=ownStats.find(x=>x.goal_number===i+1);
+            return `<div class="goal-entry">
+              <div class="field"><label for="scorer-${match.id}-${i+1}">Goleador · Gol ${i+1}</label><input id="scorer-${match.id}-${i+1}" maxlength="60" required placeholder="Apellido" value="${escapeHTML(stat?.scorer_surname || '')}"></div>
+              <div class="field"><label for="assister-${match.id}-${i+1}">Asistidor (opcional)</label><input id="assister-${match.id}-${i+1}" maxlength="60" placeholder="Apellido" value="${escapeHTML(stat?.assister_surname || '')}"></div>
+            </div>`;
+          }).join('')}
+          ${ownGoals ? `<button class="action secondary" type="submit">${ownStats.length ? 'Actualizar estadísticas' : 'Guardar estadísticas'}</button>` : '<div class="small muted">Tu equipo no convirtió goles en este partido.</div>'}
+          <span class="small muted" style="margin-left:8px">${ownStats.length === ownGoals && ownGoals ? 'Estadísticas guardadas' : 'Todavía sin guardar'}</span>
+        </form>
+      </div>` : '';
 
     let body = '';
 
@@ -1276,6 +1304,8 @@ async function renderDTAccount() {
       `;
     }
 
+    body += statsHTML;
+
     return `
       <div class="report-card">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
@@ -1312,6 +1342,61 @@ async function renderDTAccount() {
 
     ${matchCards}
   `;
+}
+
+// ======================================
+// ESTADÍSTICAS INDIVIDUALES
+// ======================================
+
+async function savePlayerStats(event, matchId, teamId, goalCount) {
+  event.preventDefault();
+  const stats = [];
+  for (let i=1; i<=goalCount; i++) {
+    const scorer = $(`scorer-${matchId}-${i}`).value.trim();
+    const assister = $(`assister-${matchId}-${i}`).value.trim();
+    if (!scorer) { alert(`Falta el apellido del goleador del gol ${i}.`); return; }
+    stats.push({goal_number:i, scorer_surname:scorer, assister_surname:assister || null});
+  }
+  const button = event.submitter;
+  if (button) { button.disabled = true; button.textContent = 'Guardando...'; }
+  const {data,error} = await db.rpc('save_match_player_stats', {
+    p_match_id:matchId,
+    p_team_id:teamId,
+    p_stats:stats
+  });
+  if (error) {
+    alert('No se pudieron guardar las estadísticas: ' + error.message);
+    if (button) { button.disabled = false; button.textContent = 'Reintentar'; }
+    return;
+  }
+  alert(data || 'Estadísticas guardadas.');
+  await renderDTAccount();
+  await renderPlayerStats();
+}
+
+async function renderPlayerStats() {
+  const target = $('playerStatsContent');
+  if (!target) return;
+  const {data,error} = await db.from('match_player_stats')
+    .select('team_id,scorer_surname,assister_surname,teams(name)');
+  if (error) { target.innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`; return; }
+  const goals = new Map(), assists = new Map();
+  (data || []).forEach(row => {
+    const team = row.teams?.name || teamName(row.team_id);
+    const scorer = row.scorer_surname.trim();
+    const sk = `${scorer}||${team}`;
+    const sv = goals.get(sk) || {name:scorer,team,count:0}; sv.count++; goals.set(sk,sv);
+    if (row.assister_surname) {
+      const assister = row.assister_surname.trim();
+      const ak = `${assister}||${team}`;
+      const av = assists.get(ak) || {name:assister,team,count:0}; av.count++; assists.set(ak,av);
+    }
+  });
+  const table = (map,label) => {
+    const rows = [...map.values()].sort((a,b)=>b.count-a.count || a.name.localeCompare(b.name,'es'));
+    return `<div><h3>${label}</h3>${rows.length ? `<table><thead><tr><th>Jugador</th><th>Equipo</th><th class="num">${label==='Goleadores'?'Goles':'Asist.'}</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${escapeHTML(r.name)}</b></td><td>${escapeHTML(r.team)}</td><td class="num">${r.count}</td></tr>`).join('')}</tbody></table>` : '<p class="muted small">Todavía no hay registros.</p>'}</div>`;
+  };
+  target.innerHTML = `<div class="stats-summary">${table(goals,'Goleadores')}${table(assists,'Asistidores')}</div><p class="small muted" style="margin-top:12px">Las estadísticas son declaradas por cada DT y no requieren validación del equipo rival.</p>`;
 }
 
 // ======================================
