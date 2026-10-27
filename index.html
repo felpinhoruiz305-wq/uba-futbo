@@ -275,7 +275,7 @@ Todavía no hay registros individuales disponibles. Los goleadores, asistidores 
 <div class="card span6">
 <h2>Solicitar acceso</h2>
 <p class="muted small">
-Completá tus datos. La organización deberá autorizar tu ingreso.
+Creá tu cuenta, elegí tu equipo y enviá la solicitud. La organización deberá autorizar tu ingreso.
 </p>
 
 <form id="requestForm" class="form-grid">
@@ -286,7 +286,13 @@ Completá tus datos. La organización deberá autorizar tu ingreso.
 
 <div class="field full">
 <label for="requestEmail">Correo electrónico</label>
-<input id="requestEmail" type="email" required maxlength="254">
+<input id="requestEmail" type="email" required maxlength="254" autocomplete="email">
+</div>
+
+<div class="field full">
+<label for="requestPassword">Crear contraseña</label>
+<input id="requestPassword" type="password" required minlength="8" autocomplete="new-password">
+<small class="muted">Usá al menos 8 caracteres. La contraseña no se comparte con la organización.</small>
 </div>
 
 <div class="field full">
@@ -297,7 +303,7 @@ Completá tus datos. La organización deberá autorizar tu ingreso.
 </div>
 
 <div class="field full">
-<button class="action" type="submit">Enviar solicitud</button>
+<button class="action" type="submit">Crear cuenta y solicitar acceso</button>
 </div>
 </form>
 
@@ -307,8 +313,7 @@ Completá tus datos. La organización deberá autorizar tu ingreso.
 <div class="card span6">
 <h2>Ingresar al Portal DT</h2>
 <p class="muted small">
-Si tu solicitud fue aprobada y recibiste una invitación,
-ingresá con tu correo y contraseña.
+Si tu solicitud fue aprobada, ingresá con el correo y la contraseña que registraste.
 </p>
 
 <form id="loginForm" class="form-grid">
@@ -708,34 +713,59 @@ function renderTeamOptions() {
     }).join('');
 }
 
-// Solicitud pública
+// Registro de cuenta + solicitud de acceso en un solo paso
 $('requestForm').addEventListener('submit', async event => {
   event.preventDefault();
 
   const button = event.submitter;
   button.disabled = true;
-  button.textContent = 'Enviando...';
+  button.textContent = 'Creando cuenta...';
 
   try {
     const fullName = $('requestName').value.trim();
     const email = $('requestEmail').value.trim().toLowerCase();
+    const password = $('requestPassword').value;
     const teamId = $('requestTeam').value;
 
+    if (!fullName) throw new Error('Ingresá tu nombre y apellido.');
     if (!teamId) throw new Error('Seleccioná un equipo.');
+    if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
 
-    const {error} = await db
+    const {data: signUpData, error: signUpError} = await db.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } }
+    });
+
+    if (signUpError) throw signUpError;
+    if (!signUpData.user) {
+      throw new Error('Supabase no devolvió el usuario creado. Volvé a intentarlo.');
+    }
+
+    button.textContent = 'Enviando solicitud...';
+
+    const {error: requestError} = await db
       .from('access_requests')
       .insert({
-        full_name:fullName,
-        email:email,
-        requested_team_id:teamId
+        full_name: fullName,
+        email,
+        requested_team_id: teamId,
+        status: 'pending'
       });
 
-    if (error) throw error;
+    if (requestError) {
+      throw new Error(
+        'La cuenta se creó, pero no se pudo guardar la solicitud: ' + requestError.message +
+        '. No vuelvas a registrarte; avisá a la organización para que revise la solicitud.'
+      );
+    }
 
+    const confirmationRequired = !signUpData.session;
     showMessage(
       'requestMessage',
-      'Tu solicitud fue enviada correctamente. Queda pendiente de aprobación.',
+      confirmationRequired
+        ? 'Tu cuenta y solicitud fueron creadas. Revisá tu correo para confirmar la dirección. Después, la organización podrá aprobar tu acceso.'
+        : 'Tu cuenta y solicitud fueron creadas correctamente. La organización deberá aprobar tu acceso antes de que puedas ingresar al Portal DT.',
       true
     );
 
@@ -744,13 +774,10 @@ $('requestForm').addEventListener('submit', async event => {
 
   } catch (error) {
     console.error(error);
-    showMessage(
-      'requestMessage',
-      error.message || 'No se pudo enviar la solicitud.'
-    );
+    showMessage('requestMessage', error.message || 'No se pudo crear la cuenta y enviar la solicitud.');
   } finally {
     button.disabled = false;
-    button.textContent = 'Enviar solicitud';
+    button.textContent = 'Crear cuenta y solicitar acceso';
   }
 });
 
@@ -996,38 +1023,17 @@ async function reviewAccessRequest(requestId,status) {
   }
 
   if (status === 'approved') {
-    const {data:profile,error:profileError} = await db
-      .from('profiles')
-      .select('id,role')
-      .eq('id', (await findUserIdByEmail(request.data.email)))
-      .maybeSingle();
+    const {error: approvalError} = await db.rpc('approve_access_request', {
+      p_request_id: requestId
+    });
 
-    if (profileError || !profile) {
-      alert('No se encontró un usuario registrado con ese correo. El DT debe crear su cuenta antes de aprobar el acceso.');
+    if (approvalError) {
+      alert(approvalError.message);
       return;
     }
 
-    const {error:membershipError} = await db
-      .from('team_memberships')
-      .insert({
-        user_id:profile.id,
-        team_id:request.data.requested_team_id
-      });
-
-    if (membershipError) {
-      alert(membershipError.message);
-      return;
-    }
-
-    const {error:roleError} = await db
-      .from('profiles')
-      .update({role:'dt'})
-      .eq('id',profile.id);
-
-    if (roleError) {
-      alert(roleError.message);
-      return;
-    }
+    await renderAdminPanel();
+    return;
   }
 
   const {error} = await db
@@ -1045,22 +1051,6 @@ async function reviewAccessRequest(requestId,status) {
   }
 
   await renderAdminPanel();
-}
-
-async function findUserIdByEmail(email) {
-  // La búsqueda de usuarios por correo debe realizarse de forma segura
-  // desde una función administrativa del servidor.
-  // No se consulta auth.users directamente desde el navegador.
-  const {data,error} = await db.rpc('get_user_id_by_email', {
-    p_email:email
-  });
-
-  if (error) {
-    console.error(error);
-    return null;
-  }
-
-  return data;
 }
 
 async function resolveDispute(event) {
@@ -1434,4 +1424,3 @@ db.auth.onAuthStateChange(() => {
 
 </body>
 </html>
-  
