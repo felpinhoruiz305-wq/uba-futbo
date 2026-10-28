@@ -472,6 +472,22 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 #accountContent > h2:first-child { margin-top: 0; }
 
+.dt-team-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.release-team-button {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  font-size: 10px;
+}
+@media(max-width:520px) {
+  .dt-team-card { align-items: flex-start; flex-direction: column; }
+  .release-team-button { width: 100%; }
+}
+
 .report-card {
   margin: 13px 0;
   padding: 18px;
@@ -1809,14 +1825,22 @@ async function renderDTAccount() {
 
   const teamCards = memberships.map(m => {
     const t = m.teams;
+    const name = t?.name || teamName(m.team_id);
 
     return `
-      <div class="notice" style="margin-bottom:8px">
-        <b>${escapeHTML(t?.name || teamName(m.team_id))}</b><br>
-        Categoría ${escapeHTML(t?.category || '—')} ·
-        ${t?.category === 'B'
-          ? 'Zona única'
-          : 'Zona ' + escapeHTML(t?.zone || '—')}
+      <div class="notice dt-team-card" style="margin-bottom:8px">
+        <div>
+          <b>${escapeHTML(name)}</b><br>
+          <span class="small">Categoría ${escapeHTML(t?.category || '—')} ·
+          ${t?.category === 'B'
+            ? 'Zona única'
+            : 'Zona ' + escapeHTML(t?.zone || '—')}</span>
+        </div>
+        <button class="action secondary release-team-button"
+          type="button"
+          onclick="releaseMyTeam('${m.team_id}','${escapeHTML(name).replace(/'/g, '&#39;')}')">
+          Liberar equipo
+        </button>
       </div>
     `;
   }).join('');
@@ -1998,6 +2022,37 @@ async function renderDTAccount() {
 
     ${matchCards}
   `;
+}
+
+// El DT puede liberar una asignación, pero nunca dejar al equipo sin responsables.
+async function releaseMyTeam(teamId, teamNameText) {
+  const confirmed = confirm(
+    `¿Querés dejar de administrar ${teamNameText}?\\n\\nSe quitará este equipo de tu cuenta. El fixture, los resultados y las estadísticas no se modificarán.\\n\\nLa operación no se permitirá si sos el último DT asignado.`
+  );
+  if (!confirmed) return;
+
+  const button = Array.from(document.querySelectorAll('.release-team-button'))
+    .find(el => el.getAttribute('onclick')?.includes(teamId));
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Liberando...';
+  }
+
+  const {data,error} = await db.rpc('release_team_membership', {
+    p_team_id: teamId
+  });
+
+  if (error) {
+    alert('No se pudo liberar el equipo: ' + error.message);
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Liberar equipo';
+    }
+    return;
+  }
+
+  alert(data || 'Equipo liberado correctamente.');
+  await renderDTAccount();
 }
 
 // ======================================
