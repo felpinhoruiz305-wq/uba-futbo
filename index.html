@@ -877,16 +877,10 @@ function escapeHTML(value) {
   })[char]);
 }
 
-function formatDate(value) {
-  if (!value) return 'Fecha a confirmar';
-  return new Intl.DateTimeFormat('es-AR', {
-    weekday:'long',
-    day:'2-digit',
-    month:'2-digit',
-    hour:'2-digit',
-    minute:'2-digit',
-    timeZone:'America/Argentina/Buenos_Aires'
-  }).format(new Date(value));
+function formatRound(value) {
+  if (value === null || value === undefined || value === '') return 'Fecha a confirmar';
+  const round = String(value).trim();
+  return /^fecha\s/i.test(round) ? round : 'Fecha ' + round;
 }
 
 function teamName(id) {
@@ -921,7 +915,7 @@ function renderMatch(match) {
     <div class="match">
       <div style="min-width:0">
         <div class="teams">${home} <span class="muted">vs.</span> ${away}</div>
-        <div class="small muted">${escapeHTML(formatDate(match.match_date))}</div>
+        <div class="small muted">${escapeHTML(formatRound(match.round))}</div>
         <div class="small">
           <span class="pill ${confirmed ? '' : 'warn'}">${escapeHTML(statusLabel(match.status))}</span>
         </div>
@@ -1475,7 +1469,7 @@ async function renderAdminPanel() {
       .select('id,full_name,email,requested_team_id,status,created_at')
       .order('created_at',{ascending:false}),
     db.from('matches')
-      .select('id,home_team_id,away_team_id,match_date,status,home_score,away_score')
+      .select('id,home_team_id,away_team_id,match_date,round,status,home_score,away_score')
       .eq('status','disputed')
       .order('match_date')
   ]);
@@ -1549,7 +1543,7 @@ async function renderAdminPanel() {
                 vs.
                 ${escapeHTML(teamName(match.away_team_id))}
               </strong>
-              <div class="small muted">${escapeHTML(formatDate(match.match_date))}</div>
+              <div class="small muted">${escapeHTML(formatRound(match.round))}</div>
               ${matchReports.map(report => `
                 <div class="small">
                   ${escapeHTML(teamName(report.team_id))} informó:
@@ -1907,7 +1901,7 @@ async function renderDTAccount() {
               vs.
               ${escapeHTML(teamName(match.away_team_id))}
             </b>
-            <div class="report-meta">${escapeHTML(formatDate(match.match_date))}</div>
+            <div class="report-meta">${escapeHTML(formatRound(match.round))}</div>
           </div>
 
           <span class="pill ${match.status === 'confirmed' ? '' : 'warn'}">
