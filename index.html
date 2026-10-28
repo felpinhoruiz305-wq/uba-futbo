@@ -596,6 +596,61 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   .hero h1 { font-size: 34px; }
 }
 
+
+.team-selection {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+.team-category {
+  border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,.025);
+}
+.team-category-title {
+  font-weight: 800;
+  font-size: .82rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.team-checkbox-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 7px;
+}
+.team-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 9px;
+  cursor: pointer;
+  min-width: 0;
+}
+.team-checkbox:has(input:checked) {
+  border-color: var(--accent, #69c9ff);
+  background: rgba(70,170,230,.10);
+}
+.team-checkbox input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  accent-color: var(--accent, #69c9ff);
+}
+.team-checkbox span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.team-checkbox small {
+  color: var(--muted, #9aa8b7);
+  font-size: .72rem;
+}
+
 </style>
 </head>
 
@@ -789,10 +844,11 @@ Los cruces todavía no están definidos. Se publicarán cuando finalice la fase 
 </div>
 
 <div class="field full">
-<label for="requestTeam">Equipo</label>
-<select id="requestTeam" required>
-<option value="">Cargando equipos...</option>
-</select>
+<label>Equipos que vas a dirigir</label>
+<p class="muted small">Podés seleccionar uno o varios equipos. Se utilizará una sola cuenta para todos.</p>
+<div id="requestTeams" class="team-selection">
+  <div class="muted small">Cargando equipos...</div>
+</div>
 </div>
 
 <div class="field full">
@@ -1248,7 +1304,7 @@ async function loadData() {
     $('latestResults').innerHTML = message;
     $('fixtureContent').innerHTML = message;
     $('standingsContent').innerHTML = message;
-    $('requestTeam').innerHTML = '<option value="">No se pudieron cargar los equipos</option>';
+    $('requestTeams').innerHTML = '<div class="error">No se pudieron cargar los equipos.</div>';
   }
 }
 
@@ -1265,10 +1321,10 @@ function showMessage(elementId, message, success = false) {
 }
 
 function renderTeamOptions() {
-  const select = $('requestTeam');
+  const container = $('requestTeams');
 
   if (!teams.length) {
-    select.innerHTML = '<option value="">No hay equipos disponibles</option>';
+    container.innerHTML = '<div class="muted small">No hay equipos disponibles.</div>';
     return;
   }
 
@@ -1277,22 +1333,33 @@ function renderTeamOptions() {
     {id:'B',name:'Copa de Plata · Categoría B'}
   ];
 
-  select.innerHTML =
-    '<option value="">Seleccioná tu equipo</option>' +
-    categories.map(category => {
-      const options = teams
-        .filter(team => team.category === category.id)
-        .map(team => `
-          <option value="${escapeHTML(team.id)}">
-            ${escapeHTML(team.name)}
-            ${category.id === 'A'
-              ? ' · Zona ' + escapeHTML(team.zone)
-              : ''}
-          </option>
-        `).join('');
+  container.innerHTML = categories.map(category => {
+    const categoryTeams = teams.filter(team => team.category === category.id);
+    if (!categoryTeams.length) return '';
 
-      return `<optgroup label="${category.name}">${options}</optgroup>`;
-    }).join('');
+    return `
+      <div class="team-category">
+        <div class="team-category-title">${category.name}</div>
+        <div class="team-checkbox-list">
+          ${categoryTeams.map(team => `
+            <label class="team-checkbox">
+              <input type="checkbox" name="requestedTeams" value="${escapeHTML(team.id)}">
+              <span>
+                <strong>${escapeHTML(team.name)}</strong>
+                ${category.id === 'A' && team.zone
+                  ? '<small>Zona ' + escapeHTML(team.zone) + '</small>'
+                  : ''}
+              </span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function requestedTeamNames(teamIds) {
+  return (teamIds || []).map(teamName).join(', ');
 }
 
 // Registro de cuenta + solicitud de acceso en un solo paso
@@ -1307,10 +1374,12 @@ $('requestForm').addEventListener('submit', async event => {
     const fullName = $('requestName').value.trim();
     const email = $('requestEmail').value.trim().toLowerCase();
     const password = $('requestPassword').value;
-    const teamId = $('requestTeam').value;
+    const teamIds = Array.from(
+      $('requestTeams').querySelectorAll('input[name="requestedTeams"]:checked')
+    ).map(input => input.value);
 
     if (!fullName) throw new Error('Ingresá tu nombre y apellido.');
-    if (!teamId) throw new Error('Seleccioná un equipo.');
+    if (!teamIds.length) throw new Error('Seleccioná al menos un equipo.');
     if (password.length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
 
     const {data: signUpData, error: signUpError} = await db.auth.signUp({
@@ -1331,7 +1400,8 @@ $('requestForm').addEventListener('submit', async event => {
       .insert({
         full_name: fullName,
         email,
-        requested_team_id: teamId,
+        requested_team_id: teamIds[0],
+        requested_team_ids: teamIds,
         status: 'pending'
       });
 
@@ -1466,7 +1536,7 @@ async function renderAdminPanel() {
 
   const [requestsResult, disputedResult] = await Promise.all([
     db.from('access_requests')
-      .select('id,full_name,email,requested_team_id,status,created_at')
+      .select('id,full_name,email,requested_team_id,requested_team_ids,status,created_at')
       .order('created_at',{ascending:false}),
     db.from('matches')
       .select('id,home_team_id,away_team_id,match_date,round,status,home_score,away_score')
@@ -1518,7 +1588,7 @@ async function renderAdminPanel() {
             <strong>${escapeHTML(request.full_name)}</strong>
             <div class="small muted">${escapeHTML(request.email)}</div>
             <div class="small">
-              Equipo solicitado: ${escapeHTML(teamName(request.requested_team_id))}
+              Equipos solicitados: ${escapeHTML(requestedTeamNames(request.requested_team_ids || [request.requested_team_id]))}
             </div>
           </div>
           <div class="report-actions">
@@ -1573,7 +1643,7 @@ async function renderAdminPanel() {
       <h2>Solicitudes anteriores</h2>
       ${requests.filter(r => r.status !== 'pending').map(request => `
         <div class="small muted">
-          ${escapeHTML(request.full_name)} · ${escapeHTML(teamName(request.requested_team_id))}
+          ${escapeHTML(request.full_name)} · ${escapeHTML(requestedTeamNames(request.requested_team_ids || [request.requested_team_id]))}
           · ${escapeHTML(request.status)}
         </div>
       `).join('') || '<p class="muted small">Todavía no hay solicitudes revisadas.</p>'}
@@ -1595,7 +1665,7 @@ async function renderAdminPanel() {
 
 async function reviewAccessRequest(requestId,status) {
   const request = await db.from('access_requests')
-    .select('id,full_name,email,requested_team_id')
+.select('id,full_name,email,requested_team_id,requested_team_ids')
     .eq('id',requestId)
     .single();
 
