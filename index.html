@@ -1897,19 +1897,23 @@ async function renderDTAccount() {
         <b>Goleadores y asistidores de ${escapeHTML(teamName(myTeamId))}</b>
         <p class="small muted">Cargá un registro por cada gol de tu equipo. El asistidor es opcional. Estas estadísticas las confirma únicamente tu equipo.</p>
         <form onsubmit="savePlayerStats(event,'${match.id}','${myTeamId}',${ownGoals})">
-          ${Array.from({length:ownGoals},(_,i)=>{
-            const stat=ownStats.find(x=>x.goal_number===i+1);
+          ${(() => {
             const playerOptions = teamPlayers
               .filter(player => player.team_id === myTeamId)
               .map(player => `<option value="${escapeHTML(player.player_name)}"></option>`)
               .join('');
             const playerListId = `players-${match.id}-${myTeamId}`;
-            return `<div class="goal-entry">
-              <div class="field"><label for="scorer-${match.id}-${i+1}">Goleador · Gol ${i+1}</label><input id="scorer-${match.id}-${i+1}" list="${playerListId}" maxlength="100" required placeholder="Nombre y apellido" value="${escapeHTML(stat?.scorer_surname || '')}"></div>
-              <div class="field"><label for="assister-${match.id}-${i+1}">Asistidor (opcional)</label><input id="assister-${match.id}-${i+1}" list="${playerListId}" maxlength="100" placeholder="Nombre y apellido" value="${escapeHTML(stat?.assister_surname || '')}"></div>
+            return `
               <datalist id="${playerListId}">${playerOptions}</datalist>
-            </div>`;
-          }).join('')}
+              ${Array.from({length:ownGoals},(_,i)=>{
+                const stat=ownStats.find(x=>x.goal_number===i+1);
+                return `<div class="goal-entry">
+                  <div class="field"><label for="scorer-${match.id}-${i+1}">Goleador · Gol ${i+1}</label><input id="scorer-${match.id}-${i+1}" list="${playerListId}" maxlength="100" required placeholder="Nombre y apellido" value="${escapeHTML(stat?.scorer_surname || '')}"></div>
+                  <div class="field"><label for="assister-${match.id}-${i+1}">Asistidor (opcional)</label><input id="assister-${match.id}-${i+1}" list="${playerListId}" maxlength="100" placeholder="Nombre y apellido" value="${escapeHTML(stat?.assister_surname || '')}"></div>
+                </div>`;
+              }).join('')}
+            `;
+          })()}
           ${ownGoals ? `<button class="action secondary" type="submit">${ownStats.length ? 'Actualizar estadísticas' : 'Guardar estadísticas'}</button>` : '<div class="small muted">Tu equipo no convirtió goles en este partido.</div>'}
           <span class="small muted" style="margin-left:8px">${ownStats.length === ownGoals && ownGoals ? 'Estadísticas guardadas' : 'Todavía sin guardar'}</span>
         </form>
