@@ -514,43 +514,138 @@ function renderFixture() {
   }).join('');
 }
 
+
 function calculateStandings(zoneTeams, zoneMatches) {
   const table = zoneTeams.map(team => ({
-    id:team.id,
-    name:team.name,
-    pj:0,pg:0,pe:0,pp:0,gf:0,gc:0,pts:0
+    id: team.id,
+    name: team.name,
+    pj: 0, pg: 0, pe: 0, pp: 0,
+    gf: 0, gc: 0, pts: 0
   }));
 
-  zoneMatches
-    .filter(m => m.status === 'confirmed' &&
-      m.home_score !== null && m.away_score !== null)
-    .forEach(match => {
-      const home = table.find(t => t.id === match.home_team_id);
-      const away = table.find(t => t.id === match.away_team_id);
-      if (!home || !away) return;
-
-      const hg = Number(match.home_score);
-      const ag = Number(match.away_score);
-
-      home.pj++; away.pj++;
-      home.gf += hg; home.gc += ag;
-      away.gf += ag; away.gc += hg;
-
-      if (hg > ag) {
-        home.pg++; away.pp++; home.pts += 3;
-      } else if (hg < ag) {
-        away.pg++; home.pp++; away.pts += 3;
-      } else {
-        home.pe++; away.pe++;
-        home.pts++; away.pts++;
-      }
-    });
-
-  return table.sort((a,b) =>
-    b.pts - a.pts ||
-    (b.gf-b.gc) - (a.gf-a.gc) ||
-    a.name.localeCompare(b.name,'es')
+  const confirmedMatches = zoneMatches.filter(m =>
+    m.status === 'confirmed' &&
+    m.home_score !== null &&
+    m.away_score !== null
   );
+
+  confirmedMatches.forEach(match => {
+    const home = table.find(t => t.id === match.home_team_id);
+    const away = table.find(t => t.id === match.away_team_id);
+
+    if (!home || !away) return;
+
+    const hg = Number(match.home_score);
+    const ag = Number(match.away_score);
+
+    home.pj++;
+    away.pj++;
+
+    home.gf += hg;
+    home.gc += ag;
+    away.gf += ag;
+    away.gc += hg;
+
+    if (hg > ag) {
+      home.pg++;
+      away.pp++;
+      home.pts += 3;
+    } else if (hg < ag) {
+      away.pg++;
+      home.pp++;
+      away.pts += 3;
+    } else {
+      home.pe++;
+      away.pe++;
+      home.pts++;
+      away.pts++;
+    }
+  });
+
+  // Primeros tres criterios:
+  // 1. Puntos
+  // 2. Diferencia de gol
+  // 3. Goles a favor
+  const compareGeneral = (a, b) =>
+    b.pts - a.pts ||
+    (b.gf - b.gc) - (a.gf - a.gc) ||
+    b.gf - a.gf;
+
+  table.sort(compareGeneral);
+
+  // Agrupar equipos que siguen empatados
+  // después de los tres primeros criterios.
+  const finalTable = [];
+
+  for (let i = 0; i < table.length;) {
+    const group = [table[i]];
+    let j = i + 1;
+
+    while (
+      j < table.length &&
+      compareGeneral(table[i], table[j]) === 0
+    ) {
+      group.push(table[j]);
+      j++;
+    }
+
+    if (group.length > 1) {
+      const tiedIds = group.map(t => t.id);
+
+      // Tabla de enfrentamientos directos
+      // exclusivamente entre los equipos empatados.
+      const directTable = new Map(
+        group.map(t => [
+          t.id,
+          { pts: 0, gf: 0, gc: 0 }
+        ])
+      );
+
+      confirmedMatches.forEach(match => {
+        if (
+          !tiedIds.includes(match.home_team_id) ||
+          !tiedIds.includes(match.away_team_id)
+        ) return;
+
+        const home = directTable.get(match.home_team_id);
+        const away = directTable.get(match.away_team_id);
+
+        const hg = Number(match.home_score);
+        const ag = Number(match.away_score);
+
+        home.gf += hg;
+        home.gc += ag;
+        away.gf += ag;
+        away.gc += hg;
+
+        if (hg > ag) {
+          home.pts += 3;
+        } else if (hg < ag) {
+          away.pts += 3;
+        } else {
+          home.pts++;
+          away.pts++;
+        }
+      });
+
+      group.sort((a, b) => {
+        const da = directTable.get(a.id);
+        const db = directTable.get(b.id);
+
+        return (
+          db.pts - da.pts ||
+          (db.gf - db.gc) - (da.gf - da.gc) ||
+          db.gf - da.gf ||
+          a.name.localeCompare(b.name, 'es')
+        );
+      });
+    }
+
+    finalTable.push(...group);
+    i = j;
+  }
+
+  return finalTable;
 }
 
 function standingsTable(rows) {
