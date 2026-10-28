@@ -1797,30 +1797,42 @@ async function renderDTAccount() {
   let reports = [];
   let confirmations = [];
   let playerStats = [];
+  let teamPlayers = [];
 
-  if (matchIds.length) {
-    const [reportsResult, confirmationsResult, statsResult] = await Promise.all([
+  const [playersResult, ...matchResults] = await Promise.all([
+    db.from('team_players')
+      .select('id,team_id,player_name')
+      .in('team_id',teamIds)
+      .order('player_name'),
+    ...(matchIds.length ? [
       db.from('match_reports')
         .select('match_id,team_id,home_score,away_score,submitted_by,submitted_at')
         .in('match_id',matchIds),
-
       db.from('match_confirmations')
         .select('match_id,team_id,confirmed_by,confirmed_at')
         .in('match_id',matchIds),
       db.from('match_player_stats')
         .select('match_id,team_id,goal_number,scorer_surname,assister_surname')
         .in('match_id',matchIds)
-    ]);
+    ] : [])
+  ]);
 
-    if (reportsResult.error || confirmationsResult.error || statsResult.error) {
-      const error = reportsResult.error || confirmationsResult.error || statsResult.error;
-      $('accountContent').innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`;
-      return;
-    }
+  if (playersResult.error) {
+    $('accountContent').innerHTML = `<div class="error">No se pudo cargar el registro de jugadores: ${escapeHTML(playersResult.error.message)}</div>`;
+    return;
+  }
+  teamPlayers = playersResult.data || [];
 
-    reports = reportsResult.data || [];
-    confirmations = confirmationsResult.data || [];
-    playerStats = statsResult.data || [];
+  if (matchResults.some(result => result.error)) {
+    const error = matchResults.find(result => result.error).error;
+    $('accountContent').innerHTML = `<div class="error">${escapeHTML(error.message)}</div>`;
+    return;
+  }
+
+  if (matchResults.length) {
+    reports = matchResults[0].data || [];
+    confirmations = matchResults[1].data || [];
+    playerStats = matchResults[2].data || [];
   }
 
   const teamCards = memberships.map(m => {
@@ -1887,9 +1899,15 @@ async function renderDTAccount() {
         <form onsubmit="savePlayerStats(event,'${match.id}','${myTeamId}',${ownGoals})">
           ${Array.from({length:ownGoals},(_,i)=>{
             const stat=ownStats.find(x=>x.goal_number===i+1);
+            const playerOptions = teamPlayers
+              .filter(player => player.team_id === myTeamId)
+              .map(player => `<option value="${escapeHTML(player.player_name)}"></option>`)
+              .join('');
+            const playerListId = `players-${match.id}-${myTeamId}`;
             return `<div class="goal-entry">
-              <div class="field"><label for="scorer-${match.id}-${i+1}">Goleador · Gol ${i+1}</label><input id="scorer-${match.id}-${i+1}" maxlength="60" required placeholder="Apellido" value="${escapeHTML(stat?.scorer_surname || '')}"></div>
-              <div class="field"><label for="assister-${match.id}-${i+1}">Asistidor (opcional)</label><input id="assister-${match.id}-${i+1}" maxlength="60" placeholder="Apellido" value="${escapeHTML(stat?.assister_surname || '')}"></div>
+              <div class="field"><label for="scorer-${match.id}-${i+1}">Goleador · Gol ${i+1}</label><input id="scorer-${match.id}-${i+1}" list="${playerListId}" maxlength="100" required placeholder="Nombre y apellido" value="${escapeHTML(stat?.scorer_surname || '')}"></div>
+              <div class="field"><label for="assister-${match.id}-${i+1}">Asistidor (opcional)</label><input id="assister-${match.id}-${i+1}" list="${playerListId}" maxlength="100" placeholder="Nombre y apellido" value="${escapeHTML(stat?.assister_surname || '')}"></div>
+              <datalist id="${playerListId}">${playerOptions}</datalist>
             </div>`;
           }).join('')}
           ${ownGoals ? `<button class="action secondary" type="submit">${ownStats.length ? 'Actualizar estadísticas' : 'Guardar estadísticas'}</button>` : '<div class="small muted">Tu equipo no convirtió goles en este partido.</div>'}
@@ -2062,14 +2080,51 @@ async function releaseMyTeam(teamId, teamNameText) {
 async function savePlayerStats(event, matchId, teamId, goalCount) {
   event.preventDefault();
   const stats = [];
-  for (let i=1; i<=goalCount; i++) {
-    const scorer = $(`scorer-${matchId}-${i}`).value.trim();
-    const assister = $(`assister-${matchId}-${i}`).value.trim();
-    if (!scorer) { alert(`Falta el apellido del goleador del gol ${i}.`); return; }
-    stats.push({goal_number:i, scorer_surname:scorer, assister_surname:assister || null});
-  }
   const button = event.submitter;
   if (button) { button.disabled = true; button.textContent = 'Guardando...'; }
+
+  for (let i=1; i<=goalCount; i++) {
+    const scorerInput = $(`scorer-${matchId}-${i}`);
+    const assisterInput = $(`assister-${matchId}-${i}`);
+    const scorer = scorerInput.value.trim();
+    const assister = assisterInput.value.trim();
+    if (!scorer) {
+      alert(`Falta el nombre del goleador del gol ${i}.`);
+      if (button) { button.disabled = false; button.textContent = 'Guardar estadísticas'; }
+      return;
+    }
+
+    const scorerResult = await db.rpc('register_team_player', {
+      p_team_id:teamId,
+      p_player_name:scorer
+    });
+    if (scorerResult.error) {
+      alert('No se pudo registrar al goleador: ' + scorerResult.error.message);
+      if (button) { button.disabled = false; button.textContent = 'Reintentar'; }
+      return;
+    }
+
+    let canonicalAssister = null;
+    if (assister) {
+      const assisterResult = await db.rpc('register_team_player', {
+        p_team_id:teamId,
+        p_player_name:assister
+      });
+      if (assisterResult.error) {
+        alert('No se pudo registrar al asistidor: ' + assisterResult.error.message);
+        if (button) { button.disabled = false; button.textContent = 'Reintentar'; }
+        return;
+      }
+      canonicalAssister = assisterResult.data.player_name;
+    }
+
+    stats.push({
+      goal_number:i,
+      scorer_surname:scorerResult.data.player_name,
+      assister_surname:canonicalAssister
+    });
+  }
+
   const {data,error} = await db.rpc('save_match_player_stats', {
     p_match_id:matchId,
     p_team_id:teamId,
