@@ -1196,10 +1196,17 @@ async function renderDTAccount() {
     const reportsMatch = ownReport && opponentReport &&
       ownReport.home_score === opponentReport.home_score &&
       ownReport.away_score === opponentReport.away_score;
-    const ownGoals = ownReport ? Number(isHome ? ownReport.home_score : ownReport.away_score) : 0;
+
+    const ownGoals = ownReport
+      ? Number(isHome ? ownReport.home_score : ownReport.away_score)
+      : (match.status === 'confirmed' ? Number(isHome ? match.home_score : match.away_score) : 0);
+
     const ownStats = playerStats.filter(x => x.match_id === match.id && x.team_id === myTeamId)
       .sort((a,b) => a.goal_number - b.goal_number);
-    const statsEditable = Boolean(ownReport) && match.status !== 'disputed';
+
+    // Los partidos históricos confirmados pueden completarse aunque no tengan un reporte individual conservado.
+    const statsEditable = match.status !== 'disputed' && (Boolean(ownReport) || match.status === 'confirmed');
+
     const statsHTML = statsEditable ? `
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
         <b>Goleadores y asistidores de ${escapeHTML(teamName(myTeamId))}</b>
