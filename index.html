@@ -8,110 +8,524 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-:root{
---bg:#f3f5f4;--card:#fff;--ink:#17231d;--muted:#68756d;
---line:#e1e8e3;--green:#173d2b;--green2:#24563d;
---lime:#d9f36a;--gold:#c99b35;--red:#b43e3e;
---shadow:0 8px 28px #173d2b0d
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
-header{background:var(--green);color:#fff;padding:22px max(18px,calc((100% - 1120px)/2))}
-.top{display:flex;justify-content:space-between;align-items:center;gap:14px}
-.brand{font-size:23px;font-weight:900;letter-spacing:.04em}
-.brand span{color:var(--lime)}
-.tag{font-size:11px;letter-spacing:.12em;color:#c7d9ce}
-nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
-.navbtn{border:1px solid #ffffff35;background:transparent;color:#e5eee8;padding:9px 13px;border-radius:999px;cursor:pointer;font-weight:650}
-.navbtn.active{background:var(--lime);color:var(--green);border-color:var(--lime)}
-main{max-width:1120px;margin:25px auto;padding:0 18px 50px}
-.hero{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:20px}
-.eyebrow{color:var(--green2);font-size:11px;font-weight:800;letter-spacing:.13em}
-.hero h1{font-size:clamp(26px,4vw,38px);line-height:1.08;margin:5px 0}
-.muted{color:var(--muted)}
-.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:800;background:#edf5ee;color:#27613e}
-.pill.warn{background:#fff3dc;color:#8b5d0c}
-.pill.gray{background:#eef1ef;color:#5c6861}
-.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:17px;box-shadow:var(--shadow)}
-.span8{grid-column:span 8}.span4{grid-column:span 4}
-.span6{grid-column:span 6}.span12{grid-column:span 12}
-.card h2{font-size:17px;margin:0 0 13px}
-.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.stat{background:#f5f8f5;border-radius:12px;padding:13px}
-.stat b{font-size:25px;display:block}
-.stat small{color:var(--muted)}
-.match{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);gap:10px}
-.match:last-child{border:0}
-.teams{font-weight:750}
-.score{font-size:19px;font-weight:900;white-space:nowrap}
-.section{display:none}
-.section.active{display:block}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:9px 7px;border-bottom:1px solid var(--line)}
-td{padding:10px 7px;border-bottom:1px solid #edf0ed}
-tr:last-child td{border:0}
-.num{text-align:center;font-variant-numeric:tabular-nums}
-.teamcell{font-weight:750}
-.notice{padding:12px 14px;border-radius:12px;background:#f1f6f1;color:#365443;font-size:13px}
-.notice.warn{background:#fff6e6;color:#815a17}
-.groupgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.group h3{margin:0 0 8px;font-size:14px}
-.group .slot{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
-.empty{color:#9aa59e;font-style:italic}
-.bracket{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;overflow:auto}
-.round h3{font-size:12px;color:var(--muted);text-transform:uppercase}
-.game{border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:10px;font-size:12px}
-.game div{padding:4px 0}
-.player{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
-.small{font-size:12px}
-.footer{color:#87928a;text-align:center;font-size:11px;margin-top:28px}
-.loading{padding:20px;text-align:center;color:var(--muted)}
-.error{background:#fff0f0;color:#a52b2b;padding:13px;border-radius:10px}
+/* =====================================
+   REDISEÑO UBA FÚTBOL 2026
+   Identidad institucional y futbolera
+===================================== */
 
-.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.field{display:flex;flex-direction:column;gap:6px}
-.field.full{grid-column:1/-1}
-.field label{font-size:12px;font-weight:800;color:var(--muted)}
-.field input,.field select{
-width:100%;padding:11px 12px;border:1px solid var(--line);
-border-radius:10px;font:inherit;background:#fff;color:var(--ink)
+:root {
+  --bg: #f2f6fa;
+  --card: #ffffff;
+  --ink: #15243a;
+  --muted: #69788b;
+  --line: #dce5ef;
+  --green: #123b70;
+  --green2: #1b5797;
+  --lime: #80c9f0;
+  --gold: #d4a943;
+  --red: #b43e3e;
+  --shadow: 0 8px 28px rgba(18,59,112,.07);
 }
-.action{
-border:0;border-radius:10px;background:var(--green);color:#fff;
-padding:11px 16px;font-weight:800;cursor:pointer
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
 }
-.action.secondary{background:#eaf0eb;color:var(--green)}
-.action.danger{background:#a83232}
-.action:disabled{opacity:.5;cursor:not-allowed}
-.request{padding:14px 0;border-bottom:1px solid var(--line)}
-.request:last-child{border:0}
-.request-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.request-actions input{
-min-width:220px;flex:1;padding:9px;border:1px solid var(--line);border-radius:8px
+
+/* ENCABEZADO */
+
+header {
+  background:
+    linear-gradient(115deg, #0b2850 0%, #123b70 58%, #17518a 100%);
+  color: white;
+  padding: 25px max(18px, calc((100% - 1160px)/2)) 18px;
+  position: relative;
+  overflow: hidden;
 }
-.report-card{padding:14px 0;border-bottom:1px solid var(--line)}
-.report-card:last-child{border:0}
-.report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
-.report-grid .field input{min-width:0}
-.report-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.report-meta{font-size:12px;color:var(--muted);margin-top:5px}
-.goal-entry{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:10px;background:#f5f8f5;border-radius:10px;margin:8px 0}
-.goal-entry .field input{min-width:0}
-.stats-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-@media(max-width:600px){.goal-entry,.stats-summary{grid-template-columns:1fr}}
-@media(max-width:600px){.report-grid{grid-template-columns:1fr}}
-@media(max-width:720px){
-.span8,.span4,.span6{grid-column:span 12}
-.statrow{grid-template-columns:repeat(2,1fr)}
-.groupgrid{grid-template-columns:1fr}
-.hero{display:block}
-.hero .pill{margin-top:10px}
-.bracket{grid-template-columns:repeat(4,180px)}
+
+header::after {
+  content: "UBA";
+  position: absolute;
+  right: 5%;
+  top: -48px;
+  font-size: 190px;
+  font-weight: 1000;
+  letter-spacing: -.1em;
+  color: rgba(255,255,255,.035);
+  pointer-events: none;
 }
-@media(max-width:600px){
-.form-grid{grid-template-columns:1fr}
-.field.full{grid-column:auto}
+
+.top {
+  position: relative;
+  z-index: 1;
+}
+
+.brand {
+  font-size: 29px;
+  font-weight: 1000;
+  letter-spacing: -.045em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand::before {
+  content: "U";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 2px solid white;
+  border-radius: 9px;
+  font-size: 23px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  color: white;
+}
+
+.brand span {
+  color: #80c9f0;
+}
+
+.tag {
+  margin-left: 49px;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .16em;
+  color: #c8dff5;
+}
+
+nav {
+  position: relative;
+  z-index: 1;
+  margin-top: 25px;
+  gap: 7px;
+}
+
+.navbtn {
+  border: 1px solid #ffffff35;
+  background: #ffffff0c;
+  color: #e5eef9;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: .2s ease;
+}
+
+.navbtn:hover {
+  background: #ffffff20;
+  border-color: #ffffff70;
+}
+
+.navbtn.active {
+  background: white;
+  color: #123b70;
+  border-color: white;
+  box-shadow: 0 3px 12px #071d3b35;
+}
+
+/* CONTENIDO */
+
+main {
+  max-width: 1160px;
+  margin: 30px auto;
+}
+
+.hero {
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow {
+  color: #2374b9;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .17em;
+}
+
+.hero h1 {
+  color: #102b4e;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 950;
+  letter-spacing: -.045em;
+  margin: 7px 0;
+}
+
+.hero .muted {
+  font-size: 14px;
+}
+
+/* TARJETAS */
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+
+.card h2 {
+  color: #173b65;
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: -.015em;
+}
+
+.stat {
+  background: #f0f6fc;
+  border: 1px solid #e4edf6;
+  border-radius: 11px;
+  padding: 15px;
+}
+
+.stat b {
+  color: #123b70;
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.stat small {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ETIQUETAS */
+
+.pill {
+  background: #e3f2fc;
+  color: #17558c;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .025em;
+}
+
+.pill.warn {
+  background: #fff2d9;
+  color: #95620b;
+}
+
+.pill.gray {
+  background: #edf1f5;
+  color: #657487;
+}
+
+/* PARTIDOS */
+
+.match {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 8px;
+  transition: background .15s ease;
+}
+
+.match:hover {
+  background: #f4f8fc;
+}
+
+.teams {
+  font-size: 13px;
+  color: #1a3555;
+}
+
+.score {
+  min-width: 60px;
+  text-align: center;
+  background: #edf4fb;
+  color: #123b70;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+/* TABLAS */
+
+table {
+  font-size: 13px;
+}
+
+th {
+  background: #edf4fa;
+  color: #526b85;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 12px 8px;
+}
+
+td {
+  padding: 12px 8px;
+}
+
+tbody tr:nth-child(even) {
+  background: #f7f9fc;
+}
+
+tbody tr:hover {
+  background: #eaf3fb;
+}
+
+.teamcell {
+  color: #183c66;
+  font-weight: 850;
+}
+
+/* AVISOS */
+
+.notice {
+  background: #eaf4fc;
+  color: #24547f;
+  border: 1px solid #d8e9f7;
+  border-radius: 9px;
+  padding: 13px 15px;
+}
+
+.notice.warn {
+  background: #fff6e7;
+  color: #815a17;
+  border-color: #f5e4c3;
+}
+
+.error {
+  border-radius: 9px;
+}
+
+/* FORMULARIOS */
+
+.field label {
+  color: #425b76;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .02em;
+}
+
+.field input,
+.field select,
+.field textarea,
+.resolve-form textarea,
+.request-actions input {
+  border: 1px solid #d6e1ed;
+  border-radius: 8px;
+  background: #fbfdff;
+  color: #172d47;
+  transition: border .15s, box-shadow .15s;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #3988c5;
+  box-shadow: 0 0 0 3px #3988c51c;
+}
+
+.action {
+  background: #123b70;
+  border-radius: 8px;
+  padding: 12px 17px;
+  font-size: 13px;
+  transition: .2s ease;
+}
+
+.action:hover:not(:disabled) {
+  background: #1c5794;
+  transform: translateY(-1px);
+}
+
+.action.secondary {
+  background: #e8f1f9;
+  color: #174875;
+  border: 1px solid #d7e5f2;
+}
+
+.action.secondary:hover:not(:disabled) {
+  background: #d9eaf8;
+}
+
+/* PORTAL DT */
+
+#dtAuthenticated > .card {
+  border-top: 4px solid #123b70;
+  padding: 23px;
+}
+
+#accountTitle {
+  color: #123b70;
+  font-size: 22px;
+  font-weight: 950;
+  margin-bottom: 4px;
+}
+
+#accountDescription {
+  color: #728197;
+}
+
+#accountContent > h2 {
+  color: #123b70;
+  font-size: 17px;
+  font-weight: 900;
+  margin: 25px 0 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+#accountContent > h2:first-child {
+  margin-top: 0;
+}
+
+.report-card {
+  padding: 18px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.report-card > div:first-child b {
+  color: #173b65;
+  font-size: 14px;
+}
+
+.report-meta {
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+.report-grid {
+  margin: 15px 0;
+}
+
+.goal-entry {
+  background: #f0f6fc;
+  border: 1px solid #e1ebf5;
+  border-radius: 9px;
+}
+
+.report-actions {
+  margin-top: 13px;
+}
+
+.report-actions .action {
+  min-width: 170px;
+}
+
+#accountContent .notice {
+  margin-top: 10px;
+}
+
+/* PANEL ADMINISTRADOR */
+
+.admin-section {
+  margin-top: 25px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-section h2 {
+  color: #123b70;
+  font-size: 16px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.admin-section .report-card {
+  background: #f9fbfd;
+}
+
+.btn {
+  border: 0;
+  background: #123b70;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn.secondary {
+  background: #e8f1f9;
+  color: #174875;
+}
+
+/* ESTADÍSTICAS */
+
+.stats-summary {
+  gap: 20px;
+}
+
+.stats-summary > div {
+  min-width: 0;
+  background: #f9fbfd;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 14px;
+}
+
+.stats-summary h3 {
+  color: #123b70;
+  margin-top: 0;
+}
+
+/* PIE */
+
+.footer {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  color: #8291a2;
+  font-weight: 650;
+  letter-spacing: .04em;
+}
+
+/* RESPONSIVE */
+
+@media(max-width:720px) {
+  header {
+    padding-top: 18px;
+  }
+
+  .brand {
+    font-size: 24px;
+  }
+
+  .tag {
+    font-size: 9px;
+    margin-left: 47px;
+  }
+
+  nav {
+    margin-top: 19px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+
+  .navbtn {
+    flex: 0 0 auto;
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+
+  main {
+    margin-top: 20px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  #dtAuthenticated > .card {
+    padding: 16px;
+  }
+
+  .report-card {
+    padding: 13px;
+  }
 }
 </style>
 </head>
@@ -264,11 +678,14 @@ Los cruces todavía no están definidos. Se publicarán cuando finalice la fase 
 
 <section class="section" id="dt">
 <div class="hero">
-<div>
-<div class="eyebrow">ÁREA PRIVADA</div>
-<h1>Portal de directores técnicos</h1>
-<div class="muted">Acceso individual para los DT de cada equipo.</div>
-</div>
+  <div>
+    <div class="eyebrow">ÁREA EXCLUSIVA · CUERPO TÉCNICO</div>
+    <h1>Portal DT</h1>
+    <div class="muted">
+      Gestioná los resultados, confirmaciones y estadísticas de tu equipo.
+    </div>
+  </div>
+  <span class="pill">ACCESO PRIVADO</span>
 </div>
 
 <div id="dtPublic">
@@ -277,7 +694,9 @@ Los cruces todavía no están definidos. Se publicarán cuando finalice la fase 
 <div class="card span6">
 <h2>Solicitar acceso</h2>
 <p class="muted small">
-Creá tu cuenta, elegí tu equipo y enviá la solicitud. La organización deberá autorizar tu ingreso.
+  ¿Sos director técnico y todavía no tenés cuenta?
+  Registrate, seleccioná tu equipo y enviá la solicitud.
+  La organización revisará y habilitará tu acceso.
 </p>
 
 <form id="requestForm" class="form-grid">
@@ -315,7 +734,8 @@ Creá tu cuenta, elegí tu equipo y enviá la solicitud. La organización deber�
 <div class="card span6">
 <h2>Ingresar al Portal DT</h2>
 <p class="muted small">
-Si tu solicitud fue aprobada, ingresá con el correo y la contraseña que registraste.
+  Si ya tenés una cuenta aprobada, ingresá con tu correo
+  y contraseña para administrar la información de tu equipo.
 </p>
 
 <form id="loginForm" class="form-grid">
