@@ -527,6 +527,223 @@ tbody tr:hover {
     padding: 13px;
   }
 }
+   
+/* =====================================
+   CORRECCIONES DE ESTRUCTURA Y NAVEGACIÓN
+===================================== */
+
+/* NAVEGACIÓN POR PESTAÑAS */
+.section {
+  display: none;
+}
+
+.section.active {
+  display: block;
+}
+
+/* ENCABEZADO */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+#connectionStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 7px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .04em;
+}
+
+/* MENÚ */
+nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.navbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 750;
+}
+
+/* CUADRÍCULA DE CONTENIDOS */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.span4 {
+  grid-column: span 4;
+}
+
+.span6 {
+  grid-column: span 6;
+}
+
+.span8 {
+  grid-column: span 8;
+}
+
+.span12 {
+  grid-column: span 12;
+}
+
+/* ESTADÍSTICAS DEL INICIO */
+.statrow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* PARTIDOS */
+.match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* FORMULARIOS */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+.field input,
+.field select,
+.field textarea,
+.resolve-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px;
+  font: inherit;
+}
+
+/* REPORTES */
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.goal-entry {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+/* ESTADÍSTICAS INDIVIDUALES */
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* TABLAS */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.num {
+  text-align: center;
+}
+
+/* BOTONES */
+.action,
+.btn {
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 800;
+}
+
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* RESPONSIVE */
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span4,
+  .span6,
+  .span8,
+  .span12 {
+    grid-column: 1 / -1;
+  }
+
+  .statrow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-grid,
+  .report-grid,
+  .goal-entry,
+  .stats-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .top {
+    align-items: flex-start;
+  }
+
+  #connectionStatus {
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+}
+
 </style>
 </head>
 
@@ -538,8 +755,8 @@ tbody tr:hover {
 <div class="brand">UBA <span>FÚTBOL</span></div>
 <div class="tag">TORNEO UNIVERSITARIO · TEMPORADA 2026</div>
 </div>
-<div class="pill" id="connectionStatus" style="background:#294f3a;color:#e6f4e9">
-● CONECTANDO
+<div class="pill" id="connectionStatus">
+  ● CONECTANDO
 </div>
 </div>
 
